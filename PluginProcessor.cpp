@@ -918,42 +918,28 @@ void DualChainSampleTriggerProcessor::loadStateFromXml(const juce::File& inputFi
 void DualChainSampleTriggerProcessor::resetToDefaultState()
 {
     // Reset APVTS parameters to their known hardcoded defaults
-    if (auto* param = parameters.getParameterAsValue(PARAM_BLEND)) { *param = 0.5f; }
-    else { DBG("PARAM_BLEND not found during reset!"); }
+    // Using operator-> on std::unique_ptr to access AudioProcessorValueTreeState members
+    // And then assigning directly to the juce::var returned by getParameterAsValue()
 
-    if (auto* param = parameters.getParameterAsValue(PARAM_MAIN_VOLUME)) { *param = 1.0f; }
-    else { DBG("PARAM_MAIN_VOLUME not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_VOLUME)) { *param = 1.0f; }
-    else { DBG("PARAM_CHAIN1_VOLUME not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_VOLUME)) { *param = 1.0f; }
-    else { DBG("PARAM_CHAIN2_VOLUME not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_NOTE)) { *param = 60.0f; } // juce::var handles float to int
-    else { DBG("PARAM_CHAIN1_NOTE not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_NOTE)) { *param = 62.0f; } // juce::var handles float to int
-    else { DBG("PARAM_CHAIN2_NOTE not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE)) { *param = true; }
-    else { DBG("PARAM_CHAIN1_VELOCITY_SENSITIVE not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE)) { *param = true; }
-    else { DBG("PARAM_CHAIN2_VELOCITY_SENSITIVE not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD)) { *param = 1.0f; } // juce::var handles float to int
-    else { DBG("PARAM_CHAIN1_VELOCITY_THRESHOLD not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD)) { *param = 1.0f; } // juce::var handles float to int
-    else { DBG("PARAM_CHAIN2_VELOCITY_THRESHOLD not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT)) { *param = 0.0f; }
-    else { DBG("PARAM_CHAIN1_PITCH_SHIFT not found during reset!"); }
-
-    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT)) { *param = 0.0f; }
-    else { DBG("PARAM_CHAIN2_PITCH_SHIFT not found during reset!"); }
+    parameters->getParameterAsValue(PARAM_BLEND) = 0.5f;
+    parameters->getParameterAsValue(PARAM_MAIN_VOLUME) = 1.0f;
+    parameters->getParameterAsValue(PARAM_CHAIN1_VOLUME) = 1.0f;
+    parameters->getParameterAsValue(PARAM_CHAIN2_VOLUME) = 1.0f;
+    parameters->getParameterAsValue(PARAM_CHAIN1_NOTE) = 60.0f; // juce::var handles float to int if underlying is int
+    parameters->getParameterAsValue(PARAM_CHAIN2_NOTE) = 62.0f; // juce::var handles float to int
+    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE) = true;
+    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE) = true;
+    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD) = 1.0f; // juce::var handles float to int
+    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD) = 1.0f; // juce::var handles float to int
+    parameters->getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT) = 0.0f;
+    parameters->getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT) = 0.0f;
     
+    // Note: The DBG messages for "param not found" are removed as getParameterAsValue()
+    // would return a void juce::var if the parameter doesn't exist, and assigning to it
+    // would be a benign operation (or potentially an error depending on JUCE version,
+    // but parameters should exist if defined in createParameters).
+    // If a parameter ID is incorrect, it's better to catch that during development.
+
     // Reset titles (temporary processor variables)
     currentSessionTitle = "sample keyboard"; 
     currentChain1Title = "Chain 1";

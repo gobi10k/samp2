@@ -488,20 +488,5 @@ void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
     }
 }
 
-void DualChainSampleTriggerEditor::parameterChanged(const juce::String& parameterID, float newValue)
-{
-    // Remove title parameter handling if APVTS listener is kept for other parameters.
-    // If APVTS listener is removed entirely from PluginEditor.h, this whole method can be removed.
-    // For now, let's assume it's kept for other (non-title) parameters if any.
-    // Remove title parameter handling if APVTS listener is kept for other parameters.
-    // If APVTS listener is removed entirely from PluginEditor.h, this whole method can be removed.
-    // For now, let's assume it's kept for other (non-title) parameters if any.
-    // Based on current setup, other parameters (blend, mainVolume) are handled by SliderAttachments.
-    // PianoRollComponent note changes are handled by its own listener.
-    // General UI updates are in updateUI().
-    // Thus, this specific parameterChanged in PluginEditor might not be strictly needed anymore
-    // if all parameter-driven UI is covered by attachments or specific callbacks.
-    // For this step, we'll leave it empty as no other parameters seem to need manual handling here.
-}
-// The parameterChanged method definition is fully removed as it's not declared in PluginEditor.h
-// and AudioProcessorValueTreeState::Listener is not inherited by the editor.
+// The parameterChanged method definition has been removed as it is not declared in PluginEditor.h
+// and the class no longer inherits from juce::AudioProcessorValueTreeState::Listener.
