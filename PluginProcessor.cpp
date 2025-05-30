@@ -563,9 +563,9 @@ void DualChainSampleTriggerProcessor::saveSingleTabStateToFile(int tabIndex, con
         DBG("Invalid tab index for saving: " << tabIndex);
         return;
     }
-    std::unique_ptr<juce::XmlElement> xml(new juce::XmlElement("SingleTabState")); // Root tag for single tab file
-    tabStates[static_cast<size_t>(tabIndex)]->saveStateToXmlElement(*xml); // Use existing TabState serialization
-    if (!xml->writeTo(file)) {
+    std::unique_ptr<juce::XmlElement> singleTabXml(new juce::XmlElement("SingleTabState")); // Renamed variable
+    tabStates[static_cast<size_t>(tabIndex)]->saveStateToXmlElement(*singleTabXml); // Use existing TabState serialization
+    if (!singleTabXml->writeTo(file)) {
         DBG("Failed to write single tab state to file: " + file.getFullPathName());
     }
 }
@@ -595,21 +595,22 @@ void DualChainSampleTriggerProcessor::loadSingleTabStateFromFile(int tabIndex, c
     if (tabIndex == getActiveTabIndex()) { // Use getter
         if (TabState* loadedTab = getTabState(tabIndex)) {
             if (ChainManager* cm = loadedTab->chainManager.get()) {
-                parameters->getParameterAsValue(PARAM_BLEND).setValueNotifyingHost(cm->getBlendValue());
-                parameters->getParameterAsValue(PARAM_MAIN_VOLUME).setValueNotifyingHost(cm->getMainVolume());
-                parameters->getParameterAsValue(PARAM_CHAIN1_VOLUME).setValueNotifyingHost(cm->getChainVolume(0));
-                parameters->getParameterAsValue(PARAM_CHAIN2_VOLUME).setValueNotifyingHost(cm->getChainVolume(1));
-                parameters->getParameterAsValue(PARAM_CHAIN1_NOTE).setValueNotifyingHost(cm->getTriggerNote(0));
-                parameters->getParameterAsValue(PARAM_CHAIN2_NOTE).setValueNotifyingHost(cm->getTriggerNote(1));
+                // Corrected: Use direct assignment to juce::Value
+                parameters->getParameterAsValue(PARAM_BLEND) = cm->getBlendValue();
+                parameters->getParameterAsValue(PARAM_MAIN_VOLUME) = cm->getMainVolume();
+                parameters->getParameterAsValue(PARAM_CHAIN1_VOLUME) = cm->getChainVolume(0);
+                parameters->getParameterAsValue(PARAM_CHAIN2_VOLUME) = cm->getChainVolume(1);
+                parameters->getParameterAsValue(PARAM_CHAIN1_NOTE) = cm->getTriggerNote(0);
+                parameters->getParameterAsValue(PARAM_CHAIN2_NOTE) = cm->getTriggerNote(1);
                 if (SampleManager* sm0 = cm->getSampleManager(0)) {
-                    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE).setValueNotifyingHost(sm0->isVelocitySensitive());
-                    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD).setValueNotifyingHost(sm0->getVelocityThreshold());
-                    parameters->getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT).setValueNotifyingHost(sm0->getPitchShift());
+                    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE) = sm0->isVelocitySensitive();
+                    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD) = sm0->getVelocityThreshold();
+                    parameters->getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT) = sm0->getPitchShift();
                 }
                 if (SampleManager* sm1 = cm->getSampleManager(1)) {
-                    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE).setValueNotifyingHost(sm1->isVelocitySensitive());
-                    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD).setValueNotifyingHost(sm1->getVelocityThreshold());
-                    parameters->getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT).setValueNotifyingHost(sm1->getPitchShift());
+                    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE) = sm1->isVelocitySensitive();
+                    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD) = sm1->getVelocityThreshold();
+                    parameters->getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT) = sm1->getPitchShift();
                 }
             }
         }
@@ -924,23 +925,23 @@ void DualChainSampleTriggerProcessor::resetToDefaultState()
     activeTabIndex = 0;
     addNewTab("Default Tab"); // Creates a tab, its CM will be default. Titles are default.
 
-    // Reset all APVTS parameters to their actual default values defined in createParameters().
-    // The parameterChanged callback, which is triggered by setValueNotifyingHost,
-    // will then apply these default values to the *active* (newly created) tab's ChainManager.
-    if (parameters) {
-        const auto& params = parameters->getParameters();
-        for (auto* param : params) {
-            if (auto* floatParam = dynamic_cast<juce::AudioParameterFloat*>(param)) {
-                floatParam->setValueNotifyingHost(floatParam->getDefaultValue());
-            } else if (auto* intParam = dynamic_cast<juce::AudioParameterInt*>(param)) {
-                intParam->setValueNotifyingHost(intParam->getDefaultValue());
-            } else if (auto* boolParam = dynamic_cast<juce::AudioParameterBool*>(param)) {
-                boolParam->setValueNotifyingHost(boolParam->getDefaultValue());
-            }
-            // Add handling for other parameter types if used (e.g., Choice)
-        }
-    }
-    // The newly added "Default Tab" will now have its ChainManager configured with these defaults.
+    // Reset APVTS parameters to their known hardcoded defaults.
+    // These assignments will trigger parameterChanged, which should then
+    // apply these defaults to the ChainManager of the newly created active tab.
+    parameters->getParameterAsValue(PARAM_BLEND) = 0.5f;
+    parameters->getParameterAsValue(PARAM_MAIN_VOLUME) = 1.0f;
+    parameters->getParameterAsValue(PARAM_CHAIN1_VOLUME) = 1.0f;
+    parameters->getParameterAsValue(PARAM_CHAIN2_VOLUME) = 1.0f;
+    parameters->getParameterAsValue(PARAM_CHAIN1_NOTE) = 60;
+    parameters->getParameterAsValue(PARAM_CHAIN2_NOTE) = 62;
+    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE) = true;
+    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE) = true;
+    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD) = 1;
+    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD) = 1;
+    parameters->getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT) = 0.0f;
+    parameters->getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT) = 0.0f;
+
+    // The newly added "Default Tab" and its ChainManager are now configured by the parameterChanged calls.
 }
 
 //==============================================================================
