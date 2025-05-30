@@ -676,7 +676,7 @@ void DualChainSampleTriggerProcessor::setStateInformation(const void* data, int 
             // Load the chain manager state
             // This assumes chainManager has a 'restoreFromXml' method.
             if (chainManager) // Ensure chainManager itself is not null
-                chainManager->restoreFromXml(*chainManagerXml); 
+                chainManager->restoreFromXml(chainManagerXml); // Pass the pointer directly
 
             // Remove the chain manager XML from the state XML
             xmlState->removeChildElement(chainManagerXml, true); // true to delete the element
@@ -694,21 +694,8 @@ void DualChainSampleTriggerProcessor::setStateInformation(const void* data, int 
 // Removed old setStateInformation(const juce::XmlElement& xml) definition.
 // Its logic is now in restoreStateFromXml.
 
-void DualChainSampleTriggerProcessor::loadStateFromXml(const juce::File& inputFile)
-{
-    std::unique_ptr<juce::XmlElement> xmlState = juce::parseXML(inputFile);
-    if (xmlState == nullptr)
-    {
-        DBG("Failed to parse XML from file: " + inputFile.getFullPathName());
-        return;
-    }
-    setStateInformation(*xmlState);
-    
-    // It's good practice to ensure all parts of the processor are updated.
-    // Calling initializeState() or a similar method might be useful if parameterChanged callbacks
-    // don't cover all aspects updated by setStateInformation.
-    // For now, assuming parameterChanged and subsequent editor updates are sufficient.
-}
+// The older loadStateFromXml definition (which called setStateInformation(XmlElement&)) is removed.
+// The correct one using XmlDocument and calling restoreStateFromXml is kept (defined later in the file).
 
 // Renamed XML helper (This is the one to keep for XML logic)
 void DualChainSampleTriggerProcessor::restoreStateFromXml(const juce::XmlElement& xml)
