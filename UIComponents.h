@@ -12,28 +12,28 @@ class ChainManager;
 
 namespace DualTriggerStyle
 {
-    // Colours
-    const juce::Colour backgroundColour = juce::Colour(0xFF1E1E1E);
-    const juce::Colour chain1Colour = juce::Colour(0xFF42A5F5);    // Blue
-    const juce::Colour chain2Colour = juce::Colour(0xFFEF5350);    // Red
-    const juce::Colour textColour = juce::Colour(0xFFE0E0E0);
-    const juce::Colour highlightColour = juce::Colour(0xFFFFB300); // Amber
-    const juce::Colour disabledColour = juce::Colour(0xFF757575);  // Grey
-    const juce::Colour controlBackgroundColour = juce::Colour(0xFF2D2D2D);
-    const juce::Colour overlayColour = juce::Colour(0x80000000);
-    
-    // Fonts
-    const float fontSizeSmall = 12.0f;
-    const float fontSizeMedium = 14.0f;
-    const float fontSizeLarge = 16.0f;
-    const float fontSizeHeader = 18.0f;
-    
-    // Dimensions
-    const int padding = 8;
-    const int cornerRadius = 5;
-    const int controlHeight = 24;
-    const int sliderHeight = 36;
-    const int headerHeight = 28;
+    // New Modernized Colours
+    const juce::Colour backgroundColour = juce::Colour(0xFF2B2B2B); // Darker grey
+    const juce::Colour controlBackgroundColour = juce::Colour(0xFF3C3C3C); // Slightly lighter grey for controls
+    const juce::Colour textColour = juce::Colour(0xFFEAEAEA); // Light grey/off-white for text
+    const juce::Colour highlightColour = juce::Colour(0xFF007AFF); // A modern blue for highlights (e.g., Apple's blue)
+    const juce::Colour chain1Colour = juce::Colour(0xFF34C759);    // A modern green for Chain 1
+    const juce::Colour chain2Colour = juce::Colour(0xFFFF9500);    // A modern orange for Chain 2
+    const juce::Colour disabledColour = juce::Colour(0xFF5A5A5A);  // Darker disabled state
+    const juce::Colour overlayColour = juce::Colour(0x801C1C1C); // Darker overlay
+
+    // Fonts (example: using a common sans-serif, slightly larger base)
+    const float fontSizeSmall = 13.0f;
+    const float fontSizeMedium = 15.0f;
+    const float fontSizeLarge = 17.0f;
+    const float fontSizeHeader = 20.0f;
+
+    // Dimensions (can be adjusted for more spacing)
+    const int padding = 10; // Increased padding
+    const int cornerRadius = 6; // Slightly more rounded
+    const int controlHeight = 28; // Increased height for better touch/click
+    const int sliderHeight = 40; // Increased height
+    const int headerHeight = 32; // Increased height
 }
 
 //==============================================================================

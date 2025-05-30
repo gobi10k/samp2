@@ -744,233 +744,296 @@ int SampleListComponent::isOverPlayButton(int x, int y) const
 //==============================================================================
 
 CustomLookAndFeel::CustomLookAndFeel()
-    : accentColour(DualTriggerStyle::highlightColour)
+    : accentColour(DualTriggerStyle::highlightColour) // Initialize with the new highlight colour
 {
-    // Set up the default colors
+    // Set up the default colors using the new DualTriggerStyle
     setColour(juce::ResizableWindow::backgroundColourId, DualTriggerStyle::backgroundColour);
     setColour(juce::Label::textColourId, DualTriggerStyle::textColour);
-    setColour(juce::TextButton::buttonColourId, DualTriggerStyle::controlBackgroundColour);
+    setColour(juce::TextButton::buttonColourId, DualTriggerStyle::controlBackgroundColour); // Normal button background
+    setColour(juce::TextButton::buttonOnColourId, DualTriggerStyle::highlightColour); // Button toggled on background
     setColour(juce::TextButton::textColourOffId, DualTriggerStyle::textColour);
-    setColour(juce::TextButton::textColourOnId, DualTriggerStyle::highlightColour);
-    setColour(juce::Slider::backgroundColourId, DualTriggerStyle::controlBackgroundColour);
-    setColour(juce::Slider::trackColourId, DualTriggerStyle::disabledColour);
-    setColour(juce::Slider::thumbColourId, accentColour);
+    setColour(juce::TextButton::textColourOnId, DualTriggerStyle::backgroundColour); // Text for toggled on button (e.g. dark text on light highlight)
+
+    setColour(juce::Slider::backgroundColourId, DualTriggerStyle::controlBackgroundColour.darker(0.5f)); // Darker groove for slider
+    setColour(juce::Slider::trackColourId, DualTriggerStyle::highlightColour); // Filled part of the track
+    setColour(juce::Slider::thumbColourId, DualTriggerStyle::highlightColour.brighter(0.2f)); // Thumb a bit brighter
+
     setColour(juce::ComboBox::backgroundColourId, DualTriggerStyle::controlBackgroundColour);
     setColour(juce::ComboBox::textColourId, DualTriggerStyle::textColour);
-    setColour(juce::ComboBox::arrowColourId, DualTriggerStyle::textColour);
-    setColour(juce::PopupMenu::backgroundColourId, DualTriggerStyle::controlBackgroundColour);
+    setColour(juce::ComboBox::arrowColourId, DualTriggerStyle::textColour.withAlpha(0.7f));
+    setColour(juce::ComboBox::outlineColourId, DualTriggerStyle::disabledColour.withAlpha(0.5f));
+
+    setColour(juce::PopupMenu::backgroundColourId, DualTriggerStyle::controlBackgroundColour.brighter(0.1f));
     setColour(juce::PopupMenu::textColourId, DualTriggerStyle::textColour);
-    setColour(juce::PopupMenu::highlightedBackgroundColourId, accentColour);
-    setColour(juce::PopupMenu::highlightedTextColourId, DualTriggerStyle::controlBackgroundColour);
+    setColour(juce::PopupMenu::highlightedBackgroundColourId, DualTriggerStyle::highlightColour);
+    setColour(juce::PopupMenu::highlightedTextColourId, DualTriggerStyle::backgroundColour); // Text on highlighted menu item
+    setColour(juce::PopupMenu::headerTextColourId, DualTriggerStyle::textColour.brighter(0.2f));
+
+    setColour(juce::ScrollBar::thumbColourId, DualTriggerStyle::disabledColour.brighter(0.3f));
+    setColour(juce::ScrollBar::backgroundColourId, DualTriggerStyle::backgroundColour.darker(0.3f));
+
+    setColour(juce::TextEditor::backgroundColourId, DualTriggerStyle::controlBackgroundColour.darker(0.2f));
+    setColour(juce::TextEditor::textColourId, DualTriggerStyle::textColour);
+    setColour(juce::TextEditor::highlightColourId, DualTriggerStyle::highlightColour.withAlpha(0.5f));
+    setColour(juce::TextEditor::outlineColourId, DualTriggerStyle::disabledColour.withAlpha(0.5f));
+    setColour(juce::TextEditor::focusedOutlineColourId, DualTriggerStyle::highlightColour.withAlpha(0.8f));
+
+    // Set a default sans-serif font if desired, though JUCE handles this reasonably well.
+    // setDefaultSansSerifTypefaceName("Your Bundled Sans Serif Font Name"); // Example
 }
 
 void CustomLookAndFeel::setAccentColour(juce::Colour colour)
 {
-    accentColour = colour;
-    setColour(juce::Slider::thumbColourId, accentColour);
+    accentColour = colour; // This is the main highlight color from DualTriggerStyle
+    // Update specific components if their accent isn't directly from DualTriggerStyle::highlightColour
+    setColour(juce::Slider::trackColourId, accentColour);
+    setColour(juce::Slider::thumbColourId, accentColour.brighter(0.2f));
+    setColour(juce::TextButton::buttonOnColourId, accentColour);
     setColour(juce::PopupMenu::highlightedBackgroundColourId, accentColour);
+    // Potentially update other colours that should derive from this accent
 }
 
 void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
                                       float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
                                       juce::Slider& slider)
 {
-    // Calculate the bounds and angles
-    const float radius = juce::jmin(width / 2.0f, height / 2.0f) - 2.0f;
-    const float centreX = x + width * 0.5f;
-    const float centreY = y + height * 0.5f;
-    const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-    
-    // Draw the background circle
-    g.setColour(DualTriggerStyle::controlBackgroundColour);
-    g.fillEllipse(centreX - radius, centreY - radius, radius * 2.0f, radius * 2.0f);
-    
-    // Draw the outer ring
-    g.setColour(DualTriggerStyle::disabledColour);
-    g.drawEllipse(centreX - radius, centreY - radius, radius * 2.0f, radius * 2.0f, 1.0f);
-    
-    // Draw the filled arc
-    juce::Path arcPath;
-    arcPath.addArc(centreX - radius, centreY - radius, radius * 2.0f, radius * 2.0f,
-                  rotaryStartAngle, angle, true);
-    g.setColour(accentColour);
-    g.strokePath(arcPath, juce::PathStrokeType(2.0f));
-    
-    // Draw the pointer
-    juce::Path pointerPath;
-    const float pointerLength = radius * 0.7f;
-    const float pointerThickness = 2.0f;
-    
-    pointerPath.addRectangle(-pointerThickness * 0.5f, -radius, pointerThickness, pointerLength);
-    pointerPath.applyTransform(juce::AffineTransform::rotation(angle).translated(centreX, centreY));
-    
-    g.setColour(DualTriggerStyle::textColour);
-    g.fillPath(pointerPath);
-    
-    // Draw the center dot
-    g.setColour(accentColour);
-    g.fillEllipse(centreX - 3.0f, centreY - 3.0f, 6.0f, 6.0f);
+    auto outline = slider.findColour(juce::Slider::rotarySliderOutlineColourId);
+    auto fill = slider.findColour(juce::Slider::rotarySliderFillColourId);
+
+    auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(10);
+
+    auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
+    auto toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
+    auto lineW = juce::jmin(8.0f, radius * 0.5f);
+    auto arcRadius = radius - lineW * 0.5f;
+
+    // Background track
+    juce::Path backgroundArc;
+    backgroundArc.addCentredArc(bounds.getCentreX(),
+                                bounds.getCentreY(),
+                                arcRadius,
+                                arcRadius,
+                                0.0f,
+                                rotaryStartAngle,
+                                rotaryEndAngle,
+                                true);
+
+    g.setColour(DualTriggerStyle::controlBackgroundColour.darker(0.7f)); // Darker track
+    g.strokePath(backgroundArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+
+    // Filled portion (value)
+    if (slider.isEnabled())
+    {
+        juce::Path valueArc;
+        valueArc.addCentredArc(bounds.getCentreX(),
+                               bounds.getCentreY(),
+                               arcRadius,
+                               arcRadius,
+                               0.0f,
+                               rotaryStartAngle,
+                               toAngle,
+                               true);
+
+        g.setColour(accentColour); // Use the modernized accentColour
+        g.strokePath(valueArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+    }
+
+    // Thumb (simple dot or line)
+    auto thumbWidth = lineW * 1.2f;
+    juce::Point<float> thumbPoint(bounds.getCentreX() + arcRadius * std::cos(toAngle - juce::MathConstants<float>::halfPi),
+                                  bounds.getCentreY() + arcRadius * std::sin(toAngle - juce::MathConstants<float>::halfPi));
+
+    g.setColour(slider.findColour(juce::Slider::thumbColourId));
+    // g.fillEllipse(juce::Rectangle<float>(thumbWidth, thumbWidth).withCentre(thumbPoint));
+    // Draw a line as a pointer instead of a full thumb for a cleaner look
+    g.drawLine(bounds.getCentreX(), bounds.getCentreY(), thumbPoint.getX(), thumbPoint.getY(), lineW * 0.6f);
 }
 
 void CustomLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
                                      float sliderPos, float minSliderPos, float maxSliderPos,
                                      const juce::Slider::SliderStyle style, juce::Slider& slider)
 {
-    // Draw the background track
-    g.setColour(DualTriggerStyle::controlBackgroundColour);
-    
+    // Use new styling constants
+    const float trackWidth = 4.0f; // Thinner track for a cleaner look
+    const float thumbRadius = (float)getSliderThumbRadius(slider); // Dynamic thumb radius
+
+    juce::Rectangle<float> trackRect;
+    juce::Rectangle<float> thumbRect(thumbRadius * 2.0f, thumbRadius * 2.0f);
+
+    // Background track
+    g.setColour(DualTriggerStyle::controlBackgroundColour.darker(0.7f)); // Darker, less prominent track
     if (style == juce::Slider::LinearHorizontal)
     {
-        g.fillRoundedRectangle(static_cast<float>(x), static_cast<float>(y + height / 2 - 2), static_cast<float>(width), 4.0f, 2.0f);
+        trackRect = { (float)x, y + height * 0.5f - trackWidth * 0.5f, (float)width, trackWidth };
+        g.fillRoundedRectangle(trackRect, trackWidth * 0.5f);
+        thumbRect.setCentre(sliderPos, trackRect.getCentreY());
     }
-    else if (style == juce::Slider::LinearVertical)
+    else // LinearVertical
     {
-        g.fillRoundedRectangle(static_cast<float>(x + width / 2 - 2), static_cast<float>(y), 4.0f, static_cast<float>(height), 2.0f);
+        trackRect = { x + width * 0.5f - trackWidth * 0.5f, (float)y, trackWidth, (float)height };
+        g.fillRoundedRectangle(trackRect, trackWidth * 0.5f);
+        thumbRect.setCentre(trackRect.getCentreX(), sliderPos);
     }
-    
-    // Draw the filled portion of the track
-    g.setColour(accentColour);
-    
+
+    // Filled portion
+    g.setColour(accentColour); // Use the modernized accentColour
     if (style == juce::Slider::LinearHorizontal)
     {
-        g.fillRoundedRectangle(static_cast<float>(x), static_cast<float>(y + height / 2 - 2), sliderPos - static_cast<float>(x), 4.0f, 2.0f);
+        g.fillRoundedRectangle(trackRect.withWidth(thumbRect.getCentreX() - trackRect.getX()), trackWidth * 0.5f);
     }
-    else if (style == juce::Slider::LinearVertical)
+    else // LinearVertical
     {
-        float filledHeight = static_cast<float>(y + height) - sliderPos;
-        g.fillRoundedRectangle(static_cast<float>(x + width / 2 - 2), sliderPos, 4.0f, filledHeight, 2.0f);
+        g.fillRoundedRectangle(trackRect.withTop(thumbRect.getCentreY()), trackWidth * 0.5f);
     }
+
+    // Thumb
+    g.setColour(slider.findColour(juce::Slider::thumbColourId));
+    g.fillEllipse(thumbRect); // Simple filled ellipse for thumb
     
-    // Draw the thumb
-    g.setColour(accentColour);
-    
-    if (style == juce::Slider::LinearHorizontal)
-    {
-        g.fillEllipse(sliderPos - 5.0f, static_cast<float>(y + height / 2 - 5), 10.0f, 10.0f);
-    }
-    else if (style == juce::Slider::LinearVertical)
-    {
-        g.fillEllipse(static_cast<float>(x + width / 2 - 5), sliderPos - 5.0f, 10.0f, 10.0f);
-    }
+    // Outline for thumb for better definition
+    g.setColour(DualTriggerStyle::backgroundColour.brighter(0.2f)); // Subtle outline
+    g.drawEllipse(thumbRect, 0.5f);
 }
 
+
 void CustomLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                                         const juce::Colour& backgroundColour,
+                                         const juce::Colour& backgroundColour, // This is TextButton::buttonColourId
                                          bool shouldDrawButtonAsHighlighted,
                                          bool shouldDrawButtonAsDown)
 {
-    // Calculate the bounds
-    juce::Rectangle<float> bounds = button.getLocalBounds().toFloat().reduced(0.5f, 0.5f);
+    auto cornerRadius = (float)DualTriggerStyle::cornerRadius;
+    auto bounds = button.getLocalBounds().toFloat().reduced(0.5f); // For border
+
+    auto baseColour = button.getToggleState() ? accentColour // Use accent for toggled ON state
+                                             : DualTriggerStyle::controlBackgroundColour; // Normal background
+
+    if (button.isMouseOver() && button.isEnabled())
+        baseColour = baseColour.brighter(0.2f);
+    if (shouldDrawButtonAsDown && button.isEnabled())
+        baseColour = baseColour.darker(0.15f);
     
-    // Choose the color based on the button state
-    juce::Colour baseColour = backgroundColour;
-    
-    if (shouldDrawButtonAsDown)
-    {
-        baseColour = accentColour;
-    }
-    else if (shouldDrawButtonAsHighlighted)
-    {
-        baseColour = backgroundColour.brighter(0.2f);
-    }
-    
-    // Draw the button background
     g.setColour(baseColour);
-    g.fillRoundedRectangle(bounds, 4.0f);
-    
-    // Draw the border
-    g.setColour(button.findColour(juce::TextButton::textColourOffId).withAlpha(0.4f));
-    g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
+    g.fillRoundedRectangle(bounds, cornerRadius);
+
+    // Subtle border
+    g.setColour(DualTriggerStyle::disabledColour.withAlpha(0.5f));
+    if (button.getToggleState() || (shouldDrawButtonAsDown && button.isEnabled()))
+        g.setColour(accentColour.darker(0.3f)); // Darker border for active/pressed states
+
+    g.drawRoundedRectangle(bounds, cornerRadius, 1.0f);
 }
 
 void CustomLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
                                  int buttonX, int buttonY, int buttonW, int buttonH,
                                  juce::ComboBox& box)
 {
-    // Calculate the bounds
-    juce::Rectangle<float> bounds(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
-    
-    // Draw the background
+    auto cornerRadius = (float)DualTriggerStyle::cornerRadius;
+    juce::Rectangle<int> boxBounds(0, 0, width, height);
+
+    // Background
     g.setColour(box.findColour(juce::ComboBox::backgroundColourId));
-    g.fillRoundedRectangle(bounds, 4.0f);
-    
-    // Draw the border
-    g.setColour(box.findColour(juce::ComboBox::textColourId).withAlpha(0.4f));
-    g.drawRoundedRectangle(bounds.reduced(0.5f, 0.5f), 4.0f, 1.0f);
-    
-    // Draw the arrow using ASCII "v" instead of Unicode
-    juce::Rectangle<float> arrowBounds(static_cast<float>(buttonX), static_cast<float>(buttonY),
-                                     static_cast<float>(buttonW), static_cast<float>(buttonH));
-    
+    g.fillRoundedRectangle(boxBounds.toFloat(), cornerRadius);
+
+    // Outline
+    g.setColour(box.findColour(juce::ComboBox::outlineColourId));
+    if (box.isMouseOver() || box.isKeyboardFocusOwner())
+        g.setColour(accentColour.withAlpha(0.7f));
+    g.drawRoundedRectangle(boxBounds.toFloat().reduced(0.5f), cornerRadius, 1.0f);
+
+    // Arrow
+    juce::Path arrow;
+    arrow.startNewSubPath(buttonX + buttonW * 0.3f, buttonY + buttonH * 0.35f);
+    arrow.lineTo(buttonX + buttonW * 0.5f, buttonY + buttonH * 0.65f);
+    arrow.lineTo(buttonX + buttonW * 0.7f, buttonY + buttonH * 0.35f);
     g.setColour(box.findColour(juce::ComboBox::arrowColourId));
-    g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-    g.drawText("v", arrowBounds.toNearestInt(), juce::Justification::centred);  // ASCII "v" instead of Unicode arrow
+    g.strokePath(arrow, juce::PathStrokeType(1.5f));
 }
 
 void CustomLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area,
                                       bool isSeparator, bool isActive, bool isHighlighted,
                                       bool isTicked, bool hasSubMenu, const juce::String& text,
                                       const juce::String& shortcutKeyText, const juce::Drawable* icon,
-                                      const juce::Colour* textColour)
+                                      const juce::Colour* /*textColourToUse*/) // textColourToUse is often nullptr
 {
-    // Draw the separator
+    juce::Colour textColour = findColour(juce::PopupMenu::textColourId);
+
     if (isSeparator)
     {
-        juce::Rectangle<int> r(area.reduced(4, 0));
+        auto r = area.reduced(5, 0);
         r.removeFromTop(r.getHeight() / 2 - 1);
-        
-        g.setColour(juce::Colours::white.withAlpha(0.2f));
+        g.setColour(DualTriggerStyle::disabledColour.withAlpha(0.3f));
         g.fillRect(r.removeFromTop(1));
-        
         return;
     }
-    
-    // Draw the highlighted background
+
     if (isHighlighted && isActive)
     {
         g.setColour(findColour(juce::PopupMenu::highlightedBackgroundColourId));
         g.fillRect(area);
+        textColour = findColour(juce::PopupMenu::highlightedTextColourId);
+    }
+    else if (isActive)
+    {
+        // No specific background for active but not highlighted, or use a very subtle one
+        // g.setColour(findColour(juce::PopupMenu::backgroundColourId));
+        // g.fillRect(area);
+    }
+    else
+    {
+        g.setColour(DualTriggerStyle::disabledColour.darker(0.5f)); // For disabled menu items
+        // g.fillRect(area); // Don't fill, just change text color
     }
     
-    // Calculate the text bounds
-    juce::Rectangle<int> textBounds = area.reduced(8, 0);
-    
-    // Draw the check mark using ASCII instead of Unicode
+    g.setColour(isActive ? textColour : DualTriggerStyle::disabledColour); // Text color update for disabled
+
+    auto r = area.reduced(1); // Padding inside item
+
     if (isTicked)
     {
-        g.setColour(findColour(juce::PopupMenu::textColourId));
-        g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-        g.drawText("*", juce::Rectangle<int>(textBounds.getX(), textBounds.getY(), 20, textBounds.getHeight()),
-                  juce::Justification::centred);  // ASCII "*" instead of Unicode checkmark
-        
-        textBounds.removeFromLeft(20);
+        // Simple ASCII checkmark
+        g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium * 0.9f));
+        g.drawText("*", r.removeFromLeft(DualTriggerStyle::controlHeight -4), juce::Justification::centred);
     }
     
-    // Draw the text
-    juce::Colour textColor = (textColour != nullptr) ? *textColour :
-                         findColour(isHighlighted ? juce::PopupMenu::highlightedTextColourId
-                                           : juce::PopupMenu::textColourId);
-    
-    g.setColour(textColor);
-    g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-    g.drawText(text, textBounds, juce::Justification::centredLeft);
-    
-    // Draw the shortcut text
+    if (icon != nullptr)
+    {
+        icon->drawWithin(g, r.removeFromLeft(DualTriggerStyle::controlHeight -4).toFloat(),
+                         juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize, 1.0f);
+    }
+
+    g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium)); // Use new font size
+    auto textBounds = r;
+    if (hasSubMenu)
+    {
+        auto arrowZone = r.removeFromRight(DualTriggerStyle::controlHeight / 2);
+        // Simple ASCII arrow for submenu
+        g.setFont(juce::Font(DualTriggerStyle::fontSizeSmall));
+        g.drawText(">", arrowZone, juce::Justification::centred);
+    }
+    g.drawText(text, textBounds, juce::Justification::centredLeft, true);
+
     if (shortcutKeyText.isNotEmpty())
     {
         g.setFont(juce::Font(DualTriggerStyle::fontSizeSmall));
-        g.drawText(shortcutKeyText, textBounds, juce::Justification::centredRight);
+        g.drawText(shortcutKeyText, r.removeFromRight(area.getWidth()/3), juce::Justification::centredRight, true);
     }
 }
 
+
 juce::Font CustomLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight)
 {
-    return juce::Font(juce::jmin(buttonHeight * 0.8f, DualTriggerStyle::fontSizeMedium));
+    // Use the new font sizes from DualTriggerStyle
+    return juce::Font(juce::jmin((float)buttonHeight * 0.7f, DualTriggerStyle::fontSizeMedium));
 }
 
 int CustomLookAndFeel::getSliderThumbRadius(juce::Slider& slider)
 {
-    return 7; // Standard thumb radius
+    // Adjust thumb radius for a modern look, perhaps slightly larger for easier interaction
+    if (slider.getSliderStyle() == juce::Slider::LinearHorizontal ||
+        slider.getSliderStyle() == juce::Slider::LinearVertical)
+        return 8; // Slightly larger thumb for linear sliders
+
+    return 6; // Default for rotary or other styles
 }
 
 //==============================================================================
@@ -1038,10 +1101,11 @@ ChainControlComponent::ChainControlComponent()
     addAndMakeVisible(velocitySensitiveButton.get());
     
     // Create the velocity threshold slider
-    velocityThresholdSlider = std::make_unique<juce::Slider>(juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight);
+    velocityThresholdSlider = std::make_unique<juce::Slider>(juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow);
     velocityThresholdSlider->setRange(1, 127, 1);
     velocityThresholdSlider->setValue(1);
     velocityThresholdSlider->setTextValueSuffix("");
+    velocityThresholdSlider->setDoubleClickReturnValue(true, 1);
     velocityThresholdSlider->addListener(this);
     addAndMakeVisible(velocityThresholdSlider.get());
     
@@ -1235,65 +1299,70 @@ void ChainControlComponent::paint(juce::Graphics& g)
 
 void ChainControlComponent::resized()
 {
-    // Calculate the layout
-    const int margin = DualTriggerStyle::padding;
-    const int controlHeight = DualTriggerStyle::controlHeight;
-    const int buttonWidth = 120;
+    // Calculate the layout using new DualTriggerStyle constants
+    const int margin = DualTriggerStyle::padding; // New padding
+    const int currentControlHeight = DualTriggerStyle::controlHeight; // New control height
+    const int buttonWidth = 120; // Keep or adjust as needed
     int y = margin;
     
     // Position the title label
-    titleLabel->setBounds(margin, y, getWidth() - margin * 2, DualTriggerStyle::headerHeight);
+    titleLabel->setBounds(margin, y, getWidth() - margin * 2, DualTriggerStyle::headerHeight); // New header height
     y += DualTriggerStyle::headerHeight + margin;
     
     // Position the trigger note controls
-    triggerNoteLabel->setBounds(margin, y, 100, controlHeight);
+    int labelWidth = 100; // Example width, adjust as needed
+    triggerNoteLabel->setBounds(margin, y, labelWidth, currentControlHeight);
     
-    // Fix the overlap issue - ensure the combo box doesn't overlap with the indicator
-    int comboBoxWidth = 150;
-    triggerNoteComboBox->setBounds(margin + 100, y, comboBoxWidth, controlHeight);
+    int comboBoxWidth = 150; // Example width
+    triggerNoteComboBox->setBounds(margin + labelWidth + margin, y, comboBoxWidth, currentControlHeight);
     
-    // Position the MIDI indicator with proper spacing
     int indicatorWidth = 30;
-    int indicatorSpacing = 10; // Space between combo box and indicator
-    triggerIndicator->setBounds(margin + 100 + comboBoxWidth + indicatorSpacing, y, indicatorWidth, controlHeight);
+    triggerIndicator->setBounds(triggerNoteComboBox->getRight() + margin, y, indicatorWidth, currentControlHeight);
     
-    // Position the trigger button on the right
-    int rightSideX = getWidth() - margin - buttonWidth;
-    triggerButton->setBounds(rightSideX, y, buttonWidth, controlHeight);
+    // Position the trigger button on the right, aligned with triggerNoteComboBox
+    int triggerButtonWidth = 80; // Example width
+    triggerButton->setBounds(getWidth() - margin - triggerButtonWidth, y, triggerButtonWidth, currentControlHeight);
     
-    y += controlHeight + margin;
+    y += currentControlHeight + margin;
     
     // Position the volume controls
-    volumeLabel->setBounds(margin, y, 60, controlHeight);
-    volumeSlider->setBounds(margin + 60, y, getWidth() - margin * 2 - 60, controlHeight);
-    y += controlHeight + margin;
+    int volLabelWidth = 60;
+    volumeLabel->setBounds(margin, y, volLabelWidth, currentControlHeight);
+    volumeSlider->setBounds(margin + volLabelWidth + margin, y, getWidth() - (margin * 3) - volLabelWidth, currentControlHeight);
+    y += currentControlHeight + margin;
     
     // Position the velocity sensitivity button
-    velocitySensitiveButton->setBounds(margin, y, 200, controlHeight);
-    y += controlHeight + margin;
-    
-    // Position the velocity threshold controls
-    velocityThresholdLabel->setBounds(margin, y, 140, controlHeight);
-    velocityThresholdSlider->setBounds(margin + 140, y, getWidth() - margin * 2 - 140, controlHeight);
-    y += controlHeight + margin;
-    
-    // Position the pitch shift controls
-    int knobWidth = 120; // Make the rotary knob a good size
-    pitchShiftLabel->setBounds(margin, y, 80, controlHeight);
-    pitchShiftSlider->setBounds(margin + 80, y, knobWidth, controlHeight * 2);
-    
-    y += controlHeight * 2 + margin; // Give extra height for the rotary knobs + text boxes
+    velocitySensitiveButton->setBounds(margin, y, 200, currentControlHeight); // Width can be adjusted
+    y += currentControlHeight + margin;
+
+    // Position the velocity threshold controls (Rotary)
+    int velThresholdLabelWidth = 130;
+    velocityThresholdLabel->setBounds(margin, y, velThresholdLabelWidth, currentControlHeight);
+    // Rotary slider with text box below might need more height.
+    // Slider itself square, text box adds to height.
+    int rotaryDiameter = 70; // Example diameter
+    int velThreshSliderHeight = rotaryDiameter + 20; // Approx height for slider + text box
+    velocityThresholdSlider->setBounds(margin + velThresholdLabelWidth + margin, y, rotaryDiameter, velThreshSliderHeight);
+    y += std::max(currentControlHeight, velThreshSliderHeight) + margin;
+
+    // Position the pitch shift controls (Rotary)
+    int pitchShiftLabelWidth = 80;
+    pitchShiftLabel->setBounds(margin, y, pitchShiftLabelWidth, currentControlHeight);
+    int pitchShiftSliderHeight = rotaryDiameter + 20; // Approx height for slider + text box
+    pitchShiftSlider->setBounds(margin + pitchShiftLabelWidth + margin, y, rotaryDiameter, pitchShiftSliderHeight);
+    y += std::max(currentControlHeight, pitchShiftSliderHeight) + margin;
     
     // Position the waveform display
-    waveformDisplay->setBounds(margin, y, getWidth() - margin * 2, 100);
-    y += 100 + margin;
+    int waveformHeight = 100; // Example height
+    waveformDisplay->setBounds(margin, y, getWidth() - (margin * 2), waveformHeight);
+    y += waveformHeight + margin;
     
-    // Position the sample buttons
-    clearButton->setBounds(margin, y, buttonWidth, controlHeight); // Adjusted clearButton position
-    y += controlHeight + margin;
+    // Position the sample buttons (Clear All)
+    clearButton->setBounds(margin, y, buttonWidth, currentControlHeight);
+    y += currentControlHeight + margin;
     
-    // Position the sample list
-    sampleList->setBounds(margin, y, getWidth() - margin * 2, getHeight() - y - margin);
+    // Position the sample list (takes remaining space)
+    sampleList->setBounds(margin, y, getWidth() - (margin * 2), getHeight() - y - margin);
 }
 
 void ChainControlComponent::actionListenerCallback(const juce::String& message)

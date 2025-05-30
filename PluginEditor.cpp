@@ -3,154 +3,68 @@
 
 //==============================================================================
 DualChainSampleTriggerEditor::DualChainSampleTriggerEditor(DualChainSampleTriggerProcessor& p, juce::AudioProcessorValueTreeState& params)
-    : AudioProcessorEditor(&p), audioProcessor(p), parameters(params)
+    : AudioProcessorEditor(&p), audioProcessor(p), parameters(params), tabbedComponent(juce::TabbedButtonBar::TabsAtTop)
 {
     // Create the look and feel
     lookAndFeel = std::make_unique<CustomLookAndFeel>();
     setLookAndFeel(lookAndFeel.get());
-    
-    pianoRollComponent_ = std::make_unique<PianoRollComponent>();
-    pianoRollComponent_->addListener(this);
-    addAndMakeVisible(pianoRollComponent_.get());
-    
-    // Initialize piano roll notes from parameters
-    // Ensure DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE and PARAM_CHAIN2_NOTE are accessible
-    if (parameters.getParameter(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE) && parameters.getParameter(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE))
-    {
-        int initialNote1 = (int) parameters.getRawParameterValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE)->load();
-        int initialNote2 = (int) parameters.getRawParameterValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE)->load();
-        pianoRollComponent_->setInitialNotes(initialNote1, initialNote2);
-    }
-    pianoRollComponent_->setChainHighlightColour(0, DualTriggerStyle::chain1Colour);
-    pianoRollComponent_->setChainHighlightColour(1, DualTriggerStyle::chain2Colour);
-    
-    // Create the title label
-    titleLabel = std::make_unique<juce::Label>("titleLabel", "sample keyboard");
-    titleLabel->setFont(juce::Font(DualTriggerStyle::fontSizeHeader * 1.2f).boldened());
-    titleLabel->setJustificationType(juce::Justification::centred);
-    titleLabel->setColour(juce::Label::textColourId, DualTriggerStyle::textColour);
-    addAndMakeVisible(titleLabel.get());
 
+    // Session Title Editor (Global)
     sessionTitleEditor = std::make_unique<juce::TextEditor>("sessionTitleEditor");
-    sessionTitleEditor->setText(titleLabel->getText()); // Initialize with current main title
-    sessionTitleEditor->setFont(juce::Font(DualTriggerStyle::fontSizeHeader * 1.2f).boldened()); // Match titleLabel font
+    sessionTitleEditor->setFont(juce::Font(DualTriggerStyle::fontSizeHeader * 1.2f).boldened());
     sessionTitleEditor->setJustification(juce::Justification::centred);
-    sessionTitleEditor->setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack); // Make it blend
+    sessionTitleEditor->setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
     sessionTitleEditor->setColour(juce::TextEditor::textColourId, DualTriggerStyle::textColour);
-    sessionTitleEditor->addListener(this); // Re-add listener
+    sessionTitleEditor->addListener(this);
     addAndMakeVisible(sessionTitleEditor.get());
-    
-    // For Chain 1 Title Editor
-    chain1TitleLabelEditorLabel = std::make_unique<juce::Label>("chain1TitleLabelEditorLabel", "Chain 1 Title:");
-    chain1TitleLabelEditorLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-    chain1TitleLabelEditorLabel->setJustificationType(juce::Justification::centredLeft);
-    addAndMakeVisible(chain1TitleLabelEditorLabel.get());
+    // titleLabel might be redundant now, or used as a static label if sessionTitleEditor is hidden/shown.
+    // For now, let's assume sessionTitleEditor is always visible for editing the active tab's name.
+    titleLabel = std::make_unique<juce::Label>("titleLabel", ""); // Not making visible for now
+    titleLabel->setVisible(false);
 
-    chain1TitleEditor = std::make_unique<juce::TextEditor>("chain1TitleEditor");
-    // chain1TitleEditor->setText(chain1Control->getTitleText()); // Get initial title from ChainControlComponent // Will set this after chain1Control is initialized
-    chain1TitleEditor->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-    chain1TitleEditor->addListener(this); // Re-add listener
-    addAndMakeVisible(chain1TitleEditor.get());
 
-    // For Chain 2 Title Editor
-    chain2TitleLabelEditorLabel = std::make_unique<juce::Label>("chain2TitleLabelEditorLabel", "Chain 2 Title:");
-    chain2TitleLabelEditorLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-    chain2TitleLabelEditorLabel->setJustificationType(juce::Justification::centredLeft);
-    addAndMakeVisible(chain2TitleLabelEditorLabel.get());
+    // Tabbed Component
+    addAndMakeVisible(tabbedComponent);
+    tabbedComponent.setTabBarDepth(30); // Example depth
+    tabbedComponent.addListener(this);
 
-    chain2TitleEditor = std::make_unique<juce::TextEditor>("chain2TitleEditor");
-    // chain2TitleEditor->setText(chain2Control->getTitleText()); // Get initial title from ChainControlComponent // Will set this after chain2Control is initialized
-    chain2TitleEditor->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-    chain2TitleEditor->addListener(this); // Re-add listener
-    addAndMakeVisible(chain2TitleEditor.get());
-    
-    // Create the chain 1 control
-    chain1Control = std::make_unique<ChainControlComponent>();
-    chain1Control->setSampleManager(audioProcessor.getChainManager()->getSampleManager(0));
-    chain1Control->setChainManager(audioProcessor.getChainManager());
-    chain1Control->setChainIndex(0);
-    chain1Control->setColour(DualTriggerStyle::chain1Colour);
-    addAndMakeVisible(chain1Control.get());
-    chain1TitleEditor->setText(chain1Control->getTitleText()); // Set initial title now that chain1Control exists
-    
-    // Create the chain 2 control
-    chain2Control = std::make_unique<ChainControlComponent>();
-    chain2Control->setSampleManager(audioProcessor.getChainManager()->getSampleManager(1));
-    chain2Control->setChainManager(audioProcessor.getChainManager());
-    chain2Control->setChainIndex(1);
-    chain2Control->setColour(DualTriggerStyle::chain2Colour);
-    addAndMakeVisible(chain2Control.get());
-    chain2TitleEditor->setText(chain2Control->getTitleText()); // Set initial title now that chain2Control exists
-    
-    // Create the blend slider
-    blendSlider = std::make_unique<juce::Slider>(juce::Slider::LinearHorizontal, juce::Slider::TextBoxBelow);
-    blendSlider->setRange(0.0, 1.0, 0.01);
-    blendSlider->setValue(0.5);
-    blendSlider->setTextValueSuffix("%");
-    blendSlider->setColour(juce::Slider::textBoxTextColourId, DualTriggerStyle::textColour);
-    blendSlider->setColour(juce::Slider::trackColourId, DualTriggerStyle::chain1Colour);
-    blendSlider->setColour(juce::Slider::thumbColourId, DualTriggerStyle::highlightColour);
-    blendSlider->setDoubleClickReturnValue(true, 0.5);
-    blendSlider->addListener(this);
-    addAndMakeVisible(blendSlider.get());
-    
-    // Create the blend label
-    blendLabel = std::make_unique<juce::Label>("blendLabel", "Blend");
-    blendLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-    blendLabel->setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(blendLabel.get());
-    
-    // Create the main volume slider
-    mainVolumeSlider = std::make_unique<juce::Slider>(juce::Slider::LinearVertical, juce::Slider::TextBoxBelow);
-    mainVolumeSlider->setRange(0.0, 1.0, 0.01);
-    mainVolumeSlider->setValue(1.0);
-    mainVolumeSlider->setTextValueSuffix("%");
-    mainVolumeSlider->setColour(juce::Slider::textBoxTextColourId, DualTriggerStyle::textColour);
-    mainVolumeSlider->setColour(juce::Slider::thumbColourId, DualTriggerStyle::highlightColour);
-    mainVolumeSlider->setDoubleClickReturnValue(true, 1.0);
-    mainVolumeSlider->addListener(this);
-    addAndMakeVisible(mainVolumeSlider.get());
-    
-    // Create the main volume label
-    mainVolumeLabel = std::make_unique<juce::Label>("mainVolumeLabel", "Main Volume");
-    mainVolumeLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
-    mainVolumeLabel->setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(mainVolumeLabel.get());
-    
-    // Create parameter attachments
-    blendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        parameters, DualChainSampleTriggerProcessor::PARAM_BLEND, *blendSlider);
-    
-    mainVolumeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        parameters, DualChainSampleTriggerProcessor::PARAM_MAIN_VOLUME, *mainVolumeSlider);
-
-    // Remove TextEditor Attachments
-    // sessionTitleAttachment = ...
-    // chain1TitleAttachment = ...
-    // chain2TitleAttachment = ...
-
-    // Remove APVTS listeners for titles
-    // parameters.addParameterListener(DualChainSampleTriggerProcessor::PARAM_SESSION_TITLE.toString(), this);
-    // parameters.addParameterListener(DualChainSampleTriggerProcessor::PARAM_CHAIN1_TITLE.toString(), this);
-    // parameters.addParameterListener(DualChainSampleTriggerProcessor::PARAM_CHAIN2_TITLE.toString(), this);
-    
-    // Set the initial component values
-    updateUI();
-    
-    // Start the timer
-    startTimerHz(30); // 30 fps
-
-    saveStateButton = std::make_unique<juce::TextButton>("Save State");
+    // Global Buttons
+    saveStateButton = std::make_unique<juce::TextButton>("Save Session");
     saveStateButton->addListener(this);
     addAndMakeVisible(saveStateButton.get());
 
-    loadStateButton = std::make_unique<juce::TextButton>("Load State");
+    loadStateButton = std::make_unique<juce::TextButton>("Load Session");
     loadStateButton->addListener(this);
     addAndMakeVisible(loadStateButton.get());
 
-    resetStateButton = std::make_unique<juce::TextButton>("Reset State");
+    resetStateButton = std::make_unique<juce::TextButton>("Reset Session");
     resetStateButton->addListener(this);
     addAndMakeVisible(resetStateButton.get());
+
+    addNewTabButton = std::make_unique<juce::TextButton>("+ Add Tab");
+    addNewTabButton->addListener(this);
+    addAndMakeVisible(addNewTabButton.get());
+
+    saveActiveTabButton = std::make_unique<juce::TextButton>("Save Active Tab");
+    saveActiveTabButton->addListener(this);
+    addAndMakeVisible(saveActiveTabButton.get());
+
+    loadActiveTabButton = std::make_unique<juce::TextButton>("Load to Active Tab");
+    loadActiveTabButton->addListener(this);
+    addAndMakeVisible(loadActiveTabButton.get());
+
+    loadTabAsNewButton = std::make_unique<juce::TextButton>("Load as New Tab");
+    loadTabAsNewButton->addListener(this);
+    addAndMakeVisible(loadTabAsNewButton.get());
+
+    // Populate tabs from processor state
+    buildTabsFromProcessorState();
+
+    // Set initial component values (global ones)
+    updateUI(); // This will update sessionTitleEditor among other things
+
+    // Start the timer
+    startTimerHz(30); // 30 fps
     
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
@@ -163,261 +77,196 @@ DualChainSampleTriggerEditor::DualChainSampleTriggerEditor(DualChainSampleTrigge
 
 DualChainSampleTriggerEditor::~DualChainSampleTriggerEditor()
 {
-    // Stop the timer
     stopTimer();
-    
-    // Remove this as a listener
-    blendSlider->removeListener(this);
-    mainVolumeSlider->removeListener(this);
-    pianoRollComponent_->removeListener(this);
-    // Re-add TextEditor listeners if they were removed
-    if (chain1TitleEditor)
-        chain1TitleEditor->removeListener(this); // This is for general cleanup, will re-add if needed by logic
-    if (chain2TitleEditor)
-        chain2TitleEditor->removeListener(this);
-    if (sessionTitleEditor)
-        sessionTitleEditor->removeListener(this);
-    // Ensure these are removed if they were previously added for APVTS attachments
-    // For safety, let's assume they are removed and re-added if needed.
-
-    if (saveStateButton)
-        saveStateButton->removeListener(this);
-    if (loadStateButton)
-        loadStateButton->removeListener(this);
-    if (resetStateButton)
-        resetStateButton->removeListener(this);
-
-    // Remove APVTS listeners for titles (if they were added)
-    // parameters.removeParameterListener(DualChainSampleTriggerProcessor::PARAM_SESSION_TITLE.toString(), this);
-    // parameters.removeParameterListener(DualChainSampleTriggerProcessor::PARAM_CHAIN1_TITLE.toString(), this);
-    // parameters.removeParameterListener(DualChainSampleTriggerProcessor::PARAM_CHAIN2_TITLE.toString(), this);
-    
-    // Clean up the look and feel
+    tabbedComponent.removeListener(this); // Remove listener for tabbedComponent
     setLookAndFeel(nullptr);
+
+    // Global buttons remove their own listeners implicitly if unique_ptr owns them.
+    // No need to manually remove listeners for unique_ptrs that are about to be destroyed.
+    // sessionTitleEditor->removeListener(this); // Not needed if this is the only listener and it's being destroyed
 }
 
 //==============================================================================
 void DualChainSampleTriggerEditor::paint(juce::Graphics& g)
 {
-    // Fill the background
     g.fillAll(DualTriggerStyle::backgroundColour);
-    
-    // Draw a border
-    g.setColour(DualTriggerStyle::disabledColour);
-    g.drawRect(getLocalBounds(), 1);
+    // No border here, TabbedComponent will fill the area.
 }
 
 void DualChainSampleTriggerEditor::resized()
 {
-    const int margin = DualTriggerStyle::padding * 2; // Typically 16px
-    const int headerHeight = DualTriggerStyle::headerHeight * 1.5f; // Typically 42px
-    const int mainVolumeWidth = 60;
-    const int blendAreaHeight = 60; // Combined height for blend label and slider
-    const int pianoRollHeight = 120; // Height for the piano roll
-
-    // Top area for title
-    // titleLabel->setBounds(margin, margin, getWidth() - (2 * margin), headerHeight); // Original label
-    sessionTitleEditor->setBounds(margin, margin, getWidth() - (2 * margin), headerHeight); // Editor takes its place
-    titleLabel->setVisible(false); // Hide original label
+    const int padding = DualTriggerStyle::padding; // Use new padding
+    const int topBarActualHeight = DualTriggerStyle::headerHeight; // Use new headerHeight for the controls in the top bar
+    const int bottomBarActualHeight = DualTriggerStyle::controlHeight; // Use new controlHeight for bottom buttons
     
-    float currentY = margin + headerHeight + margin; // currentY starts after the main title
+    juce::Rectangle<int> localBounds = getLocalBounds(); // Full editor area
 
-    // Add new editors here
-    const int editorHeight = DualTriggerStyle::controlHeight; // Typically 24px
-    const int labelWidth = 100; // Increased width for "Chain X Title:"
-    const int editorCompWidth = 150; // Width for the text editor box
+    // Top bar area (session title, tab action buttons)
+    juce::Rectangle<int> topBarArea = localBounds.removeFromTop(topBarActualHeight + 2 * padding); // Add padding above and below
+    topBarArea.reduce(padding, padding); // Reduce horizontally for side padding
 
-    chain1TitleLabelEditorLabel->setBounds(margin, currentY, labelWidth, editorHeight);
-    chain1TitleEditor->setBounds(margin + labelWidth + DualTriggerStyle::padding, currentY, editorCompWidth, editorHeight);
-    currentY += editorHeight + margin;
+    int buttonClusterWidth = addNewTabButton->getWidth() + saveActiveTabButton->getWidth() + loadActiveTabButton->getWidth() + loadTabAsNewButton->getWidth() + (3 * padding);
+    sessionTitleEditor->setBounds(topBarArea.removeFromLeft(topBarArea.getWidth() - buttonClusterWidth - padding));
 
-    chain2TitleLabelEditorLabel->setBounds(margin, currentY, labelWidth, editorHeight);
-    chain2TitleEditor->setBounds(margin + labelWidth + DualTriggerStyle::padding, currentY, editorCompWidth, editorHeight);
-    currentY += editorHeight + margin; // This currentY will now be used for chain1Control etc.
-
-    // Calculate total height available for the main controls section (chains, main volume)
-    // The space used by title and new editors is effectively currentY at this point (considering it started after title + margin)
-    // float controlsAreaHeight = getHeight() - headerHeight - blendAreaHeight - pianoRollHeight - (5 * margin); // Original
-    // Adjusted calculation:
-    float availableHeightForControls = getHeight() - currentY; // Height from under new editors to bottom
-    float controlsAreaHeight = availableHeightForControls - blendAreaHeight - pianoRollHeight - (margin * 2); // Subtract other components and their margins (below controls, below piano, bottom)
+    topBarArea.removeFromLeft(padding); // Space between title editor and first button
+    addNewTabButton->setBounds(topBarArea.removeFromLeft(100));
+    topBarArea.removeFromLeft(padding);
+    saveActiveTabButton->setBounds(topBarArea.removeFromLeft(120));
+    topBarArea.removeFromLeft(padding);
+    loadActiveTabButton->setBounds(topBarArea.removeFromLeft(120));
+    topBarArea.removeFromLeft(padding);
+    loadTabAsNewButton->setBounds(topBarArea.removeFromLeft(120));
 
 
-    if (controlsAreaHeight < 200) controlsAreaHeight = 200; // Minimum height for controls
+    // Bottom bar area (session action buttons)
+    juce::Rectangle<int> bottomBarArea = localBounds.removeFromBottom(bottomBarActualHeight + padding);
+    bottomBarArea.reduce(padding, padding / 2); // Horizontal padding, less vertical padding for bottom
 
-    // Position the chains and main volume slider within the controlsAreaHeight
-    int chainWidth = (getWidth() - (3 * margin) - mainVolumeWidth) / 2;
-    if (chainWidth < 200) chainWidth = 200; // Minimum width for a chain
+    int globalButtonWidth = 100; // Assuming these are roughly this width
+    resetStateButton->setBounds(bottomBarArea.removeFromRight(globalButtonWidth));
+    bottomBarArea.removeFromRight(padding);
+    loadStateButton->setBounds(bottomBarArea.removeFromRight(globalButtonWidth));
+    bottomBarArea.removeFromRight(padding);
+    saveStateButton->setBounds(bottomBarArea.removeFromRight(globalButtonWidth));
+    // This right-to-left layout is simple. A FlexBox or manual calculation from left could also be used.
 
-    chain1Control->setBounds(margin,
-                               currentY,
-                               chainWidth,
-                               controlsAreaHeight);
-    
-    chain2Control->setBounds(margin + chainWidth + margin,
-                               currentY,
-                               chainWidth,
-                               controlsAreaHeight);
-    
-    mainVolumeLabel->setBounds(getWidth() - mainVolumeWidth - margin,
-                                 currentY,
-                                 mainVolumeWidth,
-                                 30); // Height for the label
-                                 
-    mainVolumeSlider->setBounds(getWidth() - mainVolumeWidth - margin,
-                                  currentY + 30, // Position slider below its label
-                                  mainVolumeWidth,
-                                  controlsAreaHeight - 30); // Slider takes remaining height in this section
-
-    currentY += controlsAreaHeight + margin;
-
-    // Position Piano Roll
-    pianoRollComponent_->setBounds(margin, currentY, getWidth() - (2 * margin), pianoRollHeight);
-    currentY += pianoRollHeight + margin;
-
-    // Position Blend Slider area at the bottom
-    blendLabel->setBounds(margin,
-                            currentY,
-                            getWidth() - (2 * margin) - mainVolumeWidth, // Keep consistent with original width calc
-                            20); // Height for the label
-
-    blendSlider->setBounds(margin,
-                             currentY + 20, // Position slider below its label
-                             getWidth() - (2 * margin) - mainVolumeWidth, // Keep consistent
-                             blendAreaHeight - 20); // Slider takes remaining height
-                             
-    // Position Save State Button at the bottom-left
-    saveStateButton->setBounds(margin, getHeight() - margin - DualTriggerStyle::controlHeight, 100, DualTriggerStyle::controlHeight);
-    // Position Load State Button next to Save State Button
-    loadStateButton->setBounds(saveStateButton->getRight() + margin, getHeight() - margin - DualTriggerStyle::controlHeight, 100, DualTriggerStyle::controlHeight);
-    // Position Reset State Button next to Load State Button
-    resetStateButton->setBounds(loadStateButton->getRight() + margin, getHeight() - margin - DualTriggerStyle::controlHeight, 100, DualTriggerStyle::controlHeight);
+    // Tabbed component takes up the remaining middle area
+    tabbedComponent.setBounds(localBounds); // localBounds is already reduced by top and bottom bars
 }
 
-void DualChainSampleTriggerEditor::sliderValueChanged(juce::Slider* slider)
-{
-    // Update UI to reflect changes
-    updateUI();
+
+void DualChainSampleTriggerEditor::buildTabsFromProcessorState() {
+    tabbedComponent.clearTabs();
+    // tabPages.clear(); // If using a vector of direct pointers
+    for (int i = 0; i < audioProcessor.getNumTabs(); ++i) {
+        TabContentComponent* tabPage = new TabContentComponent(audioProcessor, parameters, i);
+        // tabPages.push_back(tabPage); // If using a vector
+        tabbedComponent.addTab(audioProcessor.getTabTitle(i), DualTriggerStyle::backgroundColour.darker(0.2f), tabPage, true, i);
+    }
+    // Ensure the active tab in processor is reflected in UI
+    if (audioProcessor.getNumTabs() > 0) {
+        int processorActiveIndex = audioProcessor.activeTabIndex;
+        if (processorActiveIndex < 0 || processorActiveIndex >= tabbedComponent.getNumTabs()) {
+            processorActiveIndex = 0; // Fallback if index is invalid
+            audioProcessor.setActiveTab(processorActiveIndex); // Correct processor state
+        }
+        tabbedComponent.setCurrentTabIndex(processorActiveIndex, false); // false = don't send change message
+        sessionTitleEditor->setText(audioProcessor.getSessionTitleForActiveTab(), juce::dontSendNotification);
+    } else {
+        sessionTitleEditor->setText("No Tabs", juce::dontSendNotification);
+    }
 }
+
+void DualChainSampleTriggerEditor::currentTabChanged(int newCurrentTabIndex, const juce::String& newCurrentTabName) {
+    audioProcessor.setActiveTab(newCurrentTabIndex);
+    sessionTitleEditor->setText(audioProcessor.getSessionTitleForActiveTab(), juce::dontSendNotification);
+    
+    // When tab changes, ensure the APVTS parameters reflect the state of the newly active tab's ChainManager
+    // This is crucial for UI components (like ChainControlComponent) that use APVTS attachments
+    // to correctly display and control the parameters of the active ChainManager.
+    if (TabState* activeTabState = audioProcessor.getActiveTabState()) {
+        if (ChainManager* activeCM = activeTabState->chainManager.get()) {
+            // Manually update global parameters based on the new active ChainManager's state.
+            // This ensures that UI elements attached to these global parameters reflect the active tab.
+            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_BLEND).setValueNotifyingHost(activeCM->getBlendValue());
+            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_MAIN_VOLUME).setValueNotifyingHost(activeCM->getMainVolume());
+            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_VOLUME).setValueNotifyingHost(activeCM->getChainVolume(0));
+            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_VOLUME).setValueNotifyingHost(activeCM->getChainVolume(1));
+            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE).setValueNotifyingHost(activeCM->getTriggerNote(0));
+            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE).setValueNotifyingHost(activeCM->getTriggerNote(1));
+
+            if (SampleManager* sm0 = activeCM->getSampleManager(0)) {
+                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_VELOCITY_SENSITIVE).setValueNotifyingHost(sm0->isVelocitySensitive());
+                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_VELOCITY_THRESHOLD).setValueNotifyingHost(sm0->getVelocityThreshold());
+                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_PITCH_SHIFT).setValueNotifyingHost(sm0->getPitchShift());
+            }
+            if (SampleManager* sm1 = activeCM->getSampleManager(1)) {
+                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_VELOCITY_SENSITIVE).setValueNotifyingHost(sm1->isVelocitySensitive());
+                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_VELOCITY_THRESHOLD).setValueNotifyingHost(sm1->getVelocityThreshold());
+                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_PITCH_SHIFT).setValueNotifyingHost(sm1->getPitchShift());
+            }
+        }
+    }
+
+    if (auto* activeTabPage = dynamic_cast<TabContentComponent*>(tabbedComponent.getTabContentComponent(newCurrentTabIndex))) {
+        activeTabPage->updateUIForTab();
+    }
+}
+
+
+// void DualChainSampleTriggerEditor::sliderValueChanged(juce::Slider* slider)
+// {
+//     // This is now handled by TabContentComponent for its sliders,
+//     // or directly by APVTS attachments for global sliders if any were outside tabs.
+// }
 
 void DualChainSampleTriggerEditor::timerCallback()
 {
-    // Update UI to reflect any changes in the processor
-    updateUI();
-
-    // Update Piano Roll display from parameters
-    if (pianoRollComponent_ != nullptr &&
-        parameters.getParameter(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE) &&
-        parameters.getParameter(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE))
-    {
-        int note1 = (int) parameters.getRawParameterValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE)->load();
-        int note2 = (int) parameters.getRawParameterValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE)->load();
-        pianoRollComponent_->setInitialNotes(note1, note2);
+    // Check if the number of tabs in processor matches UI; rebuild if not.
+    if (audioProcessor.getNumTabs() != tabbedComponent.getNumTabs()) {
+       buildTabsFromProcessorState();
     }
+    // Check if active tab title changed in processor (e.g. by host)
+    juce::String procActiveTabTitle = audioProcessor.getSessionTitleForActiveTab();
+    if (sessionTitleEditor->getText() != procActiveTabTitle) {
+       sessionTitleEditor->setText(procActiveTabTitle, juce::dontSendNotification);
+       if (audioProcessor.activeTabIndex >= 0 && audioProcessor.activeTabIndex < tabbedComponent.getNumTabs()) {
+           tabbedComponent.setTabName(audioProcessor.activeTabIndex, procActiveTabTitle);
+       }
+    }
+
+    // The active TabContentComponent's timer will handle its own updates.
+    // No need to call updateUI() on it from here explicitly if its timer is running.
 }
 
 void DualChainSampleTriggerEditor::updateUI()
 {
-    // Update the blend slider color to reflect the balance
-    float blendValue = static_cast<float>(blendSlider->getValue());
-    
-    juce::Colour trackColour = DualTriggerStyle::chain1Colour.interpolatedWith(
-        DualTriggerStyle::chain2Colour, blendValue);
-    
-    blendSlider->setColour(juce::Slider::trackColourId, trackColour);
-    
-    // Update the blend label text
-    if (blendValue < 0.33f)
-    {
-        blendLabel->setText("Blend: More Chain 1", juce::dontSendNotification);
-    }
-    else if (blendValue > 0.67f)
-    {
-        blendLabel->setText("Blend: More Chain 2", juce::dontSendNotification);
-    }
-    else
-    {
-        blendLabel->setText("Blend: Balanced", juce::dontSendNotification);
-    }
-    
-    // Update the chain controls
-    chain1Control->updateDisplay();
-    chain2Control->updateDisplay();
-    
-    // Update the main volume label
-    float volumeValue = static_cast<float>(mainVolumeSlider->getValue());
-    
-    if (volumeValue < 0.01f)
-    {
-        mainVolumeLabel->setText("Volume: Muted", juce::dontSendNotification);
-    }
-    else
-    {
-        mainVolumeLabel->setText("Main Volume", juce::dontSendNotification);
+    // This method used to update all parts of the UI.
+    // Now, most UI elements are in TabContentComponent, which has its own updateUIForTab.
+    // This main updateUI should only handle global elements.
+    sessionTitleEditor->setText(audioProcessor.getSessionTitleForActiveTab(), juce::dontSendNotification);
+    if (audioProcessor.activeTabIndex >=0 && audioProcessor.activeTabIndex < tabbedComponent.getNumTabs()) {
+         tabbedComponent.setTabName(audioProcessor.activeTabIndex, audioProcessor.getSessionTitleForActiveTab());
     }
 
-    // Update PianoRoll initial notes if parameters change externally
-    // This might be better handled by a parameter listener directly in PianoRollComponent
-    // or by the processor sending an update message. For now, keep it simple.
-    if (parameters.getParameter(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE) && parameters.getParameter(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE))
-    {
-        int note1 = (int) parameters.getRawParameterValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE)->load();
-        int note2 = (int) parameters.getRawParameterValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE)->load();
-        if (pianoRollComponent_) // ensure component exists
-             pianoRollComponent_->setInitialNotes(note1, note2);
-    }
+    // If there's an active tab, maybe tell it to update too,
+    // though its own timer should be doing this.
+    // if (auto* activeTabPage = dynamic_cast<TabContentComponent*>(tabbedComponent.getCurrentTabComponent())) {
+    //     activeTabPage->updateUIForTab();
+    // }
 }
 
-void DualChainSampleTriggerEditor::pianoNoteSelected(int chainIndex, int midiNoteNumber)
-{
-    if (chainIndex == 0)
-    {
-        parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE) = midiNoteNumber;
-    }
-    else if (chainIndex == 1)
-    {
-        parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE) = midiNoteNumber;
-    }
-}
+// void DualChainSampleTriggerEditor::pianoNoteSelected(int chainIndex, int midiNoteNumber)
+// {
+//     // Moved to TabContentComponent
+// }
 
 void DualChainSampleTriggerEditor::textEditorTextChanged(juce::TextEditor& editor)
 {
     if (&editor == sessionTitleEditor.get())
     {
-        audioProcessor.setSessionTitleForSaving(sessionTitleEditor->getText());
-        // Also update the underlying label if it's still used for display when not editing
-        titleLabel->setText(sessionTitleEditor->getText(), juce::dontSendNotification);
+        audioProcessor.setSessionTitleForActiveTab(sessionTitleEditor->getText());
+        if (audioProcessor.activeTabIndex >= 0 && audioProcessor.activeTabIndex < tabbedComponent.getNumTabs()) {
+            tabbedComponent.setTabName(audioProcessor.activeTabIndex, sessionTitleEditor->getText());
+        }
     }
-    else if (&editor == chain1TitleEditor.get())
-    {
-        audioProcessor.setChain1TitleForSaving(chain1TitleEditor->getText());
-        if (chain1Control)
-            chain1Control->setChainTitle(chain1TitleEditor->getText());
-    }
-    else if (&editor == chain2TitleEditor.get())
-    {
-        audioProcessor.setChain2TitleForSaving(chain2TitleEditor->getText());
-        if (chain2Control)
-            chain2Control->setChainTitle(chain2TitleEditor->getText());
-    }
+    // Chain title editors are within TabContentComponent
 }
 
 void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
 {
     if (button == saveStateButton.get())
     {
-        // Titles are now set via textEditorTextChanged, direct call to processor
-        audioProcessor.setSessionTitleForSaving(sessionTitleEditor->getText());
-        audioProcessor.setChain1TitleForSaving(chain1TitleEditor->getText());
-        audioProcessor.setChain2TitleForSaving(chain2TitleEditor->getText());
+        // Session title is now handled by active tab logic, but ensure it's saved if processor holds it temporarily
+        // audioProcessor.setSessionTitleForSaving(sessionTitleEditor->getText()); // Old way
 
         chooser = std::make_unique<juce::FileChooser>(
-            "Save State as XML",
+            "Save Session as XML",
             juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
-            "*.xml",
-            true, // useOSNativeDialogBox
-            false, // treatFilePackagesAsDirectories
-            this); // parentComponent (this PluginEditor instance)
+            "*.xml", // Ensure this matches what processor expects if it checks extension
+            true,
+            false,
+            this);
         
         auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting;
 
@@ -426,25 +275,21 @@ void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
             juce::File file = fc.getResult();
             if (file != juce::File{})
             {
-                // Ensure .xml extension
-                if (!file.hasFileExtension(".xml") && !file.hasFileExtension(".XML"))
+                if (!file.hasFileExtension(".xml") && !file.hasFileExtension(".XML")) // Processor might do this too
                     file = file.withFileExtension(".xml");
-                audioProcessor.saveStateToXml(file);
+                audioProcessor.saveStateToXml(file); // Processor now saves based on its tab structure
             }
         });
     }
-    // Note: Other button clicks like clearButton, etc., are handled within ChainControlComponent's
-    // own buttonClicked method if they are part of that component.
-    // If there were other buttons directly in PluginEditor, their handlers would go here.
     else if (button == loadStateButton.get())
     {
         chooser = std::make_unique<juce::FileChooser>(
-            "Load State from XML",
+            "Load Session from XML",
             juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
             "*.xml",
-            true, // useOSNativeDialogBox
-            false, // treatFilePackagesAsDirectories
-            this); // parentComponent
+            true,
+            false,
+            this);
 
         auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
@@ -454,41 +299,95 @@ void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
             if (file != juce::File{})
             {
                 audioProcessor.loadStateFromXml(file);
-
-            // Re-add explicit UI updates for titles
-            sessionTitleEditor->setText(audioProcessor.getSessionTitleForSaving(), juce::dontSendNotification);
-            chain1TitleEditor->setText(audioProcessor.getChain1TitleForSaving(), juce::dontSendNotification);
-            chain2TitleEditor->setText(audioProcessor.getChain2TitleForSaving(), juce::dontSendNotification);
-            
-            titleLabel->setText(audioProcessor.getSessionTitleForSaving(), juce::dontSendNotification);
-            if (chain1Control) chain1Control->setChainTitle(audioProcessor.getChain1TitleForSaving());
-            if (chain2Control) chain2Control->setChainTitle(audioProcessor.getChain2TitleForSaving());
-
-            updateUI(); 
-            if (chain1Control) chain1Control->updateDisplay();
-            if (chain2Control) chain2Control->updateDisplay();
-        }
-        // End of the lambda callback for loadStateButton
+                buildTabsFromProcessorState(); // Rebuild UI based on new processor state
+                updateUI(); // Update global UI elements like session title
+            }
         }); 
     }
     else if (button == resetStateButton.get())
     {
-        audioProcessor.resetToDefaultState();
-
-        // Re-add explicit UI updates for titles
-        sessionTitleEditor->setText(audioProcessor.getSessionTitleForSaving(), juce::dontSendNotification);
-        chain1TitleEditor->setText(audioProcessor.getChain1TitleForSaving(), juce::dontSendNotification);
-        chain2TitleEditor->setText(audioProcessor.getChain2TitleForSaving(), juce::dontSendNotification);
+        // Ask for confirmation before resetting
+        juce::AlertWindow::showOkCancelBox(
+            juce::AlertWindow::WarningIcon,
+            "Reset Session",
+            "Are you sure you want to reset the entire session to its default state? This will clear all tabs and their content.",
+            "Reset",
+            "Cancel",
+            nullptr,
+            juce::ModalCallbackFunction::create([this](int result) {
+                if (result == 1) // OK
+                {
+                    audioProcessor.resetToDefaultState();
+                    buildTabsFromProcessorState(); // Rebuild UI based on new processor state
+                    updateUI(); // Update global UI elements
+                }
+            }));
+    }
+    else if (button == addNewTabButton.get())
+    {
+        audioProcessor.addNewTab("New Tab " + juce::String(audioProcessor.getNumTabs() + 1));
+        buildTabsFromProcessorState(); // Rebuild UI
+        if (audioProcessor.getNumTabs() > 0) {
+             tabbedComponent.setCurrentTabIndex(audioProcessor.getNumTabs() - 1, true); // Switch to the new tab and notify listeners
+        }
+    }
+    else if (button == saveActiveTabButton.get()) {
+        if (audioProcessor.activeTabIndex < 0) return;
+        chooser = std::make_unique<juce::FileChooser>(
+            "Save Active Tab State",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
+            "*.tabstate;*.xml", true, false, this);
         
-        titleLabel->setText(audioProcessor.getSessionTitleForSaving(), juce::dontSendNotification);
-        if (chain1Control) chain1Control->setChainTitle(audioProcessor.getChain1TitleForSaving());
-        if (chain2Control) chain2Control->setChainTitle(audioProcessor.getChain2TitleForSaving());
+        auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting;
+        chooser->launchAsync(flags, [this] (const juce::FileChooser& fc) {
+            juce::File file = fc.getResult();
+            if (file != juce::File{}) {
+                if (!file.hasFileExtension(".tabstate") && !file.hasFileExtension(".xml"))
+                    file = file.withFileExtension(".tabstate");
+                audioProcessor.saveSingleTabStateToFile(audioProcessor.activeTabIndex, file);
+            }
+        });
+    }
+    else if (button == loadActiveTabButton.get()) {
+        if (audioProcessor.activeTabIndex < 0) return;
+        chooser = std::make_unique<juce::FileChooser>(
+            "Load State into Active Tab",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
+            "*.tabstate;*.xml", true, false, this);
 
-        updateUI(); 
-        if (chain1Control) chain1Control->updateDisplay();
-        if (chain2Control) chain2Control->updateDisplay();
+        auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+        chooser->launchAsync(flags, [this] (const juce::FileChooser& fc) {
+            juce::File file = fc.getResult();
+            if (file != juce::File{}) {
+                audioProcessor.loadSingleTabStateFromFile(audioProcessor.activeTabIndex, file);
+                if (auto* activeTabComp = dynamic_cast<TabContentComponent*>(tabbedComponent.getTabContentComponent(audioProcessor.activeTabIndex))) {
+                    activeTabComp->updateUIForTab();
+                }
+                tabbedComponent.setTabName(audioProcessor.activeTabIndex, audioProcessor.getTabTitle(audioProcessor.activeTabIndex));
+                sessionTitleEditor->setText(audioProcessor.getSessionTitleForActiveTab(), juce::dontSendNotification);
+            }
+        });
+    }
+    else if (button == loadTabAsNewButton.get()) {
+        chooser = std::make_unique<juce::FileChooser>(
+            "Load Tab State as New Tab",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
+            "*.tabstate;*.xml", true, false, this);
+
+        auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+        chooser->launchAsync(flags, [this] (const juce::FileChooser& fc) {
+            juce::File file = fc.getResult();
+            if (file != juce::File{}) {
+                audioProcessor.loadTabAsNewFromFile(file);
+                buildTabsFromProcessorState();
+                if (audioProcessor.getNumTabs() > 0) {
+                    tabbedComponent.setCurrentTabIndex(audioProcessor.getNumTabs() - 1, true);
+                }
+            }
+        });
     }
 }
 
 // The parameterChanged method definition has been removed as it is not declared in PluginEditor.h
 // and the class no longer inherits from juce::AudioProcessorValueTreeState::Listener.
+// Listeners for individual controls are now primarily in TabContentComponent or handled by APVTS.

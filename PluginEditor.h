@@ -2,8 +2,10 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "UIComponents.h"
-#include "PianoRollComponent.h"
+#include "UIComponents.h" // For CustomLookAndFeel
+// #include "PianoRollComponent.h" // Included via TabContentComponent.h if needed there
+#include "TabContentComponent.h" // Include the new TabContentComponent header
+
 
 /**
  * @class DualChainSampleTriggerEditor
@@ -12,11 +14,13 @@
  * This editor class creates the user interface for the plugin.
  */
 class DualChainSampleTriggerEditor : public juce::AudioProcessorEditor,
-                                     public juce::Slider::Listener,
-                                     public juce::Timer,
-                                     public PianoRollComponent::Listener,
-                                     public juce::TextEditor::Listener,
-                                     public juce::Button::Listener // Ensure Button::Listener is present
+                                     // public juce::Slider::Listener, // Moved to TabContentComponent or handled by APVTS
+                                     public juce::Timer, // Keep for global UI updates if any
+                                     // public PianoRollComponent::Listener, // Moved to TabContentComponent
+                                     public juce::TextEditor::Listener, // For sessionTitleEditor
+                                     public juce::Button::Listener, // For global buttons
+                                     public juce::TabbedComponent::Listener, // For tab changes
+                                     public juce::FileChooser::ModalComponentManager // For FileChooser
 {
 public:
     //==============================================================================
@@ -39,27 +43,19 @@ public:
     void resized() override;
     
     //==============================================================================
-    // juce::Slider::Listener overrides
-    void sliderValueChanged(juce::Slider* slider) override;
+    // Listener overrides
+    // void sliderValueChanged(juce::Slider* slider) override; // Moved
     
-    //==============================================================================
-    // juce::Timer overrides
-    void timerCallback() override;
+    void timerCallback() override; // Will be simplified
     
-    //==============================================================================
-    /**
-     * Update the UI to reflect the processor state
-     */
-    void updateUI();
+    // void pianoNoteSelected(int chainIndex, int midiNoteNumber) override; // Moved
 
-    void pianoNoteSelected(int chainIndex, int midiNoteNumber) override;
+    void textEditorTextChanged(juce::TextEditor& editor) override; // Handles sessionTitleEditor
 
-    //==============================================================================
-    // juce::TextEditor::Listener overrides
-    void textEditorTextChanged(juce::TextEditor& editor) override;
+    void buttonClicked(juce::Button* button) override; // Handles global buttons
 
-    // juce::Button::Listener overrides
-    void buttonClicked(juce::Button* button) override; // Ensure this is declared
+    // juce::TabbedComponent::Listener override
+    void currentTabChanged(int newCurrentTabIndex, const juce::String& newCurrentTabName) override;
 
     // juce::AudioProcessorValueTreeState::Listener override (if kept for other params)
     // void parameterChanged(const juce::String& parameterID, float newValue) override; // Removed
@@ -72,44 +68,31 @@ private:
     juce::AudioProcessorValueTreeState& parameters;
     
     // UI Components
-    std::unique_ptr<juce::Label> titleLabel;
-    std::unique_ptr<ChainControlComponent> chain1Control;
-    std::unique_ptr<ChainControlComponent> chain2Control;
-    std::unique_ptr<juce::Slider> blendSlider;
-    std::unique_ptr<juce::Label> blendLabel;
-    std::unique_ptr<juce::Slider> mainVolumeSlider;
-    std::unique_ptr<juce::Label> mainVolumeLabel;
-    std::unique_ptr<PianoRollComponent> pianoRollComponent_;
+    juce::TabbedComponent tabbedComponent {juce::TabbedButtonBar::TabsAtTop}; // Initialize with orientation
+    // std::vector<TabContentComponent*> tabPages; // Optional: if direct management of pages is needed
 
-    // Chain Title Editors
-    std::unique_ptr<juce::Label> chain1TitleLabelEditorLabel;
-    std::unique_ptr<juce::TextEditor> chain1TitleEditor;
-    std::unique_ptr<juce::Label> chain2TitleLabelEditorLabel;
-    std::unique_ptr<juce::TextEditor> chain2TitleEditor;
+    // Global UI Elements (not part of individual tabs)
+    std::unique_ptr<juce::Label> titleLabel; // Main session title display (might be replaced by sessionTitleEditor)
+    std::unique_ptr<juce::TextEditor> sessionTitleEditor; // For editing overall session/active tab title
 
-    // Session Title Editor
-    std::unique_ptr<juce::TextEditor> sessionTitleEditor;
-
-    // Save State Button
     std::unique_ptr<juce::TextButton> saveStateButton;
-
-    // Load State Button
     std::unique_ptr<juce::TextButton> loadStateButton;
-
-    // Reset State Button
     std::unique_ptr<juce::TextButton> resetStateButton;
-    
-    // Parameter attachments
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> blendAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mainVolumeAttachment;
+    std::unique_ptr<juce::TextButton> addNewTabButton; // New button
 
-    // TextEditor Attachments for titles are removed
-    // std::unique_ptr<juce::AudioProcessorValueTreeState::TextEditorAttachment> sessionTitleAttachment;
-    // std::unique_ptr<juce::AudioProcessorValueTreeState::TextEditorAttachment> chain1TitleAttachment;
-    // std::unique_ptr<juce::AudioProcessorValueTreeState::TextEditorAttachment> chain2TitleAttachment;
+    std::unique_ptr<juce::TextButton> saveActiveTabButton;
+    std::unique_ptr<juce::TextButton> loadActiveTabButton; // Loads into current active tab
+    std::unique_ptr<juce::TextButton> loadTabAsNewButton;  // Loads file into a new tab
     
+    // Parameter attachments for global controls if any (e.g. if main volume or blend were outside tabs)
+    // For now, blend and main volume are inside TabContentComponent, using global APVTS parameters.
+
     // Custom look and feel
     std::unique_ptr<CustomLookAndFeel> lookAndFeel;
+
+    // Update UI method (will be simplified or its logic moved)
+    void updateUI();
+    void buildTabsFromProcessorState(); // New method to populate/update tabs
 
     // FileChooser member
     std::unique_ptr<juce::FileChooser> chooser;

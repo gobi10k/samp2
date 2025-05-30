@@ -3,6 +3,68 @@
 #include <JuceHeader.h>
 #include "ChainManager.h"
 
+// Forward declare ChainManager if its full definition isn't already included by PluginProcessor.h
+// class ChainManager; // (It is included via PluginProcessor.h -> ChainManager.h)
+
+class TabState // Not using ReferenceCountedObject for now, PluginProcessor will own unique_ptrs
+{
+public:
+    juce::String tabTitle;
+    juce::String chain1Title;
+    juce::String chain2Title;
+    std::unique_ptr<ChainManager> chainManager;
+
+    // Constructor
+    TabState(const juce::String& newTabTitle,
+             const juce::String& c1Title = "Chain 1",
+             const juce::String& c2Title = "Chain 2")
+        : tabTitle(newTabTitle), chain1Title(c1Title), chain2Title(c2Title)
+    {
+        chainManager = std::make_unique<ChainManager>();
+    }
+
+    // Methods to save/load ChainManager's state and titles for this tab
+    void saveStateToXmlElement(juce::XmlElement& xmlParentForThisTab) const
+    {
+        xmlParentForThisTab.setAttribute("tabTitle", tabTitle);
+        xmlParentForThisTab.setAttribute("chain1Title", chain1Title);
+        xmlParentForThisTab.setAttribute("chain2Title", chain2Title);
+        // Let ChainManager save its own state as a child element
+        if (chainManager) // Check if chainManager is valid
+        {
+             // ChainManager::saveToXml() returns a unique_ptr<XmlElement>
+             // whose tag is "CHAINMANAGER". This should be added as a child.
+             xmlParentForThisTab.addChildElement(chainManager->saveToXml().release());
+        }
+    }
+
+    void loadStateFromXmlElement(const juce::XmlElement& xmlForThisTab)
+    {
+        tabTitle = xmlForThisTab.getStringAttribute("tabTitle", "Untitled Tab");
+        chain1Title = xmlForThisTab.getStringAttribute("chain1Title", "Chain 1");
+        chain2Title = xmlForThisTab.getStringAttribute("chain2Title", "Chain 2");
+
+        if (!chainManager) // If chainManager wasn't created or is null
+        {
+             chainManager = std::make_unique<ChainManager>();
+        }
+
+        if (auto* cmXml = xmlForThisTab.getChildByName("CHAINMANAGER"))
+        {
+            chainManager->restoreFromXml(cmXml);
+        }
+        else
+        {
+            // If no CHAINMANAGER element, reset it to default (or log warning)
+            chainManager = std::make_unique<ChainManager>();
+            DBG("TabState::loadStateFromXmlElement - No CHAINMANAGER element found for tab: " + tabTitle);
+        }
+    }
+
+private:
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TabState)
+};
+
 /**
  * @class DualChainSampleTriggerProcessor
  * @brief Main processor class for the Dual-Chain Sample Trigger plugin.
@@ -54,17 +116,29 @@ public:
     void saveStateToXml(const juce::File& outputFile);
     void loadStateFromXml(const juce::File& inputFile);
 
-    // Add public methods to set these from the editor before saving
-    void setSessionTitleForSaving(const juce::String& title) { currentSessionTitle = title; }
-    void setChain1TitleForSaving(const juce::String& title) { currentChain1Title = title; }
-    void setChain2TitleForSaving(const juce::String& title) { currentChain2Title = title; }
+    // Tab Management
+    void addNewTab(const juce::String& title = "Untitled Tab");
+    void removeTab(int tabIndex);
+    void setActiveTab(int tabIndex);
+    TabState* getActiveTabState();
+    TabState* getTabState(int tabIndex);
+    int getNumTabs() const;
+    juce::String getTabTitle(int tabIndex) const;
+    void setTabTitle(int tabIndex, const juce::String& newTitle);
+    void setChainTitleForActiveTab(int chainIndex, const juce::String& newTitle);
+    juce::String getChainTitleForActiveTab(int chainIndex) const;
+    juce::String getSessionTitleForActiveTab() const;
+    void setSessionTitleForActiveTab(const juce::String& title);
 
-    // Add public methods to get these for the editor after loading
-    juce::String getSessionTitleForSaving() const { return currentSessionTitle; }
-    juce::String getChain1TitleForSaving() const { return currentChain1Title; }
-    juce::String getChain2TitleForSaving() const { return currentChain2Title; }
+    // Access to active ChainManager
+    ChainManager* getActiveChainManager();
 
     void resetToDefaultState();
+
+    // Individual Tab State Management
+    void saveSingleTabStateToFile(int tabIndex, const juce::File& file);
+    void loadSingleTabStateFromFile(int tabIndex, const juce::File& file);
+    void loadTabAsNewFromFile(const juce::File& file);
     
     //==============================================================================
     // AudioProcessorValueTreeState::Listener overrides
@@ -84,13 +158,6 @@ public:
     void valueTreeParentChanged(juce::ValueTree& treeWhoseParentHasChanged) override {};
     
     //==============================================================================
-    /**
-     * Get the chain manager
-     *
-     * @return Pointer to the chain manager
-     */
-    ChainManager* getChainManager() { return chainManager.get(); }
-    
     /**
      * Get a parameter by its ID
      *
@@ -170,15 +237,20 @@ private:
     void createParameters();
     
     // Chain manager
-    std::unique_ptr<ChainManager> chainManager;
+    // std::unique_ptr<ChainManager> chainManager; // Removed
     
+    std::vector<std::unique_ptr<TabState>> tabStates;
+    int activeTabIndex = 0;
+    double currentSampleRate = 44100.0; // Store these for when new tabs are made
+    int currentBlockSize = 512;      // or when restoring state before prepareToPlay
+
     // State ValueTree for saving/loading plugin state
     juce::ValueTree state;
 
     // Re-introduce String Members for titles
-    juce::String currentSessionTitle;
-    juce::String currentChain1Title;
-    juce::String currentChain2Title;
+    // juce::String currentSessionTitle; // Removed
+    // juce::String currentChain1Title; // Removed
+    // juce::String currentChain2Title; // Removed
     
     // Initialize state from parameters
     void initializeState();
