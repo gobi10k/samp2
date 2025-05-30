@@ -662,6 +662,18 @@ void DualChainSampleTriggerProcessor::changeProgramName(int index, const juce::S
 // Removed duplicate getStateInformation(juce::MemoryBlock& destData)
 // The primary one (that calls getCurrentStateAsXml) is kept.
 
+void DualChainSampleTriggerProcessor::getStateInformation(juce::MemoryBlock& destData)
+{
+    // Create an XML element to hold the state
+    std::unique_ptr<juce::XmlElement> xml(new juce::XmlElement("DualChainSampleTriggerState"));
+
+    // Populate the XML element with the current state
+    getCurrentStateAsXml(*xml);
+
+    // Convert the XML element to binary and store it in destData
+    copyXmlToBinary(*xml, destData);
+}
+
 void DualChainSampleTriggerProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes)); // Assumes getXmlFromBinary is a utility in JUCE or defined elsewhere
