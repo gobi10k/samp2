@@ -19,8 +19,8 @@ class DualChainSampleTriggerEditor : public juce::AudioProcessorEditor,
                                      // public PianoRollComponent::Listener, // Moved to TabContentComponent
                                      public juce::TextEditor::Listener, // For sessionTitleEditor
                                      public juce::Button::Listener, // For global buttons
-                                     public juce::TabbedComponent::Listener, // For tab changes
-                                     public juce::FileChooser::ModalComponentManager // For FileChooser
+                                     public juce::TabbedComponent::Listener // For tab changes
+                                     // Removed: public juce::FileChooser::ModalComponentManager // This was incorrect
 {
 public:
     //==============================================================================

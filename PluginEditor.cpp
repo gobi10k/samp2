@@ -11,7 +11,7 @@ DualChainSampleTriggerEditor::DualChainSampleTriggerEditor(DualChainSampleTrigge
 
     // Session Title Editor (Global)
     sessionTitleEditor = std::make_unique<juce::TextEditor>("sessionTitleEditor");
-    sessionTitleEditor->setFont(juce::Font(DualTriggerStyle::fontSizeHeader * 1.2f).boldened());
+    sessionTitleEditor->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeHeader * 1.2f).withStyle(juce::Font::bold)));
     sessionTitleEditor->setJustification(juce::Justification::centred);
     sessionTitleEditor->setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
     sessionTitleEditor->setColour(juce::TextEditor::textColourId, DualTriggerStyle::textColour);
@@ -26,7 +26,7 @@ DualChainSampleTriggerEditor::DualChainSampleTriggerEditor(DualChainSampleTrigge
     // Tabbed Component
     addAndMakeVisible(tabbedComponent);
     tabbedComponent.setTabBarDepth(30); // Example depth
-    tabbedComponent.addListener(this);
+    tabbedComponent.setListener(this);
 
     // Global Buttons
     saveStateButton = std::make_unique<juce::TextButton>("Save Session");
@@ -78,7 +78,7 @@ DualChainSampleTriggerEditor::DualChainSampleTriggerEditor(DualChainSampleTrigge
 DualChainSampleTriggerEditor::~DualChainSampleTriggerEditor()
 {
     stopTimer();
-    tabbedComponent.removeListener(this); // Remove listener for tabbedComponent
+    tabbedComponent.setListener(nullptr); // Correct way to remove listener
     setLookAndFeel(nullptr);
 
     // Global buttons remove their own listeners implicitly if unique_ptr owns them.
@@ -145,7 +145,7 @@ void DualChainSampleTriggerEditor::buildTabsFromProcessorState() {
     }
     // Ensure the active tab in processor is reflected in UI
     if (audioProcessor.getNumTabs() > 0) {
-        int processorActiveIndex = audioProcessor.activeTabIndex;
+        int processorActiveIndex = audioProcessor.getActiveTabIndex();
         if (processorActiveIndex < 0 || processorActiveIndex >= tabbedComponent.getNumTabs()) {
             processorActiveIndex = 0; // Fallback if index is invalid
             audioProcessor.setActiveTab(processorActiveIndex); // Correct processor state
@@ -160,33 +160,15 @@ void DualChainSampleTriggerEditor::buildTabsFromProcessorState() {
 void DualChainSampleTriggerEditor::currentTabChanged(int newCurrentTabIndex, const juce::String& newCurrentTabName) {
     audioProcessor.setActiveTab(newCurrentTabIndex);
     sessionTitleEditor->setText(audioProcessor.getSessionTitleForActiveTab(), juce::dontSendNotification);
-    
-    // When tab changes, ensure the APVTS parameters reflect the state of the newly active tab's ChainManager
-    // This is crucial for UI components (like ChainControlComponent) that use APVTS attachments
-    // to correctly display and control the parameters of the active ChainManager.
-    if (TabState* activeTabState = audioProcessor.getActiveTabState()) {
-        if (ChainManager* activeCM = activeTabState->chainManager.get()) {
-            // Manually update global parameters based on the new active ChainManager's state.
-            // This ensures that UI elements attached to these global parameters reflect the active tab.
-            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_BLEND).setValueNotifyingHost(activeCM->getBlendValue());
-            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_MAIN_VOLUME).setValueNotifyingHost(activeCM->getMainVolume());
-            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_VOLUME).setValueNotifyingHost(activeCM->getChainVolume(0));
-            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_VOLUME).setValueNotifyingHost(activeCM->getChainVolume(1));
-            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_NOTE).setValueNotifyingHost(activeCM->getTriggerNote(0));
-            parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_NOTE).setValueNotifyingHost(activeCM->getTriggerNote(1));
+    // Update the actual tab name displayed in the tab bar
+    tabbedComponent.setTabName(newCurrentTabIndex, audioProcessor.getSessionTitleForActiveTab());
 
-            if (SampleManager* sm0 = activeCM->getSampleManager(0)) {
-                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_VELOCITY_SENSITIVE).setValueNotifyingHost(sm0->isVelocitySensitive());
-                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_VELOCITY_THRESHOLD).setValueNotifyingHost(sm0->getVelocityThreshold());
-                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN1_PITCH_SHIFT).setValueNotifyingHost(sm0->getPitchShift());
-            }
-            if (SampleManager* sm1 = activeCM->getSampleManager(1)) {
-                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_VELOCITY_SENSITIVE).setValueNotifyingHost(sm1->isVelocitySensitive());
-                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_VELOCITY_THRESHOLD).setValueNotifyingHost(sm1->getVelocityThreshold());
-                parameters.getParameterAsValue(DualChainSampleTriggerProcessor::PARAM_CHAIN2_PITCH_SHIFT).setValueNotifyingHost(sm1->getPitchShift());
-            }
-        }
-    }
+    // The APVTS parameters are global. The active tab's ChainManager will use these global values.
+    // The UI components within TabContentComponent (which are often linked to APVTS)
+    // will automatically reflect these global values.
+    // No need to push values from TabState back into APVTS here.
+    // The TabContentComponent::updateUIForTab() will handle making sure its internal
+    // non-APVTS-linked elements (like chain titles, sample lists) are correct for the tab.
 
     if (auto* activeTabPage = dynamic_cast<TabContentComponent*>(tabbedComponent.getTabContentComponent(newCurrentTabIndex))) {
         activeTabPage->updateUIForTab();
@@ -210,8 +192,8 @@ void DualChainSampleTriggerEditor::timerCallback()
     juce::String procActiveTabTitle = audioProcessor.getSessionTitleForActiveTab();
     if (sessionTitleEditor->getText() != procActiveTabTitle) {
        sessionTitleEditor->setText(procActiveTabTitle, juce::dontSendNotification);
-       if (audioProcessor.activeTabIndex >= 0 && audioProcessor.activeTabIndex < tabbedComponent.getNumTabs()) {
-           tabbedComponent.setTabName(audioProcessor.activeTabIndex, procActiveTabTitle);
+       if (audioProcessor.getActiveTabIndex() >= 0 && audioProcessor.getActiveTabIndex() < tabbedComponent.getNumTabs()) {
+           tabbedComponent.setTabName(audioProcessor.getActiveTabIndex(), procActiveTabTitle);
        }
     }
 
@@ -225,8 +207,8 @@ void DualChainSampleTriggerEditor::updateUI()
     // Now, most UI elements are in TabContentComponent, which has its own updateUIForTab.
     // This main updateUI should only handle global elements.
     sessionTitleEditor->setText(audioProcessor.getSessionTitleForActiveTab(), juce::dontSendNotification);
-    if (audioProcessor.activeTabIndex >=0 && audioProcessor.activeTabIndex < tabbedComponent.getNumTabs()) {
-         tabbedComponent.setTabName(audioProcessor.activeTabIndex, audioProcessor.getSessionTitleForActiveTab());
+    if (audioProcessor.getActiveTabIndex() >=0 && audioProcessor.getActiveTabIndex() < tabbedComponent.getNumTabs()) {
+         tabbedComponent.setTabName(audioProcessor.getActiveTabIndex(), audioProcessor.getSessionTitleForActiveTab());
     }
 
     // If there's an active tab, maybe tell it to update too,
@@ -246,8 +228,8 @@ void DualChainSampleTriggerEditor::textEditorTextChanged(juce::TextEditor& edito
     if (&editor == sessionTitleEditor.get())
     {
         audioProcessor.setSessionTitleForActiveTab(sessionTitleEditor->getText());
-        if (audioProcessor.activeTabIndex >= 0 && audioProcessor.activeTabIndex < tabbedComponent.getNumTabs()) {
-            tabbedComponent.setTabName(audioProcessor.activeTabIndex, sessionTitleEditor->getText());
+        if (audioProcessor.getActiveTabIndex() >= 0 && audioProcessor.getActiveTabIndex() < tabbedComponent.getNumTabs()) {
+            tabbedComponent.setTabName(audioProcessor.getActiveTabIndex(), sessionTitleEditor->getText());
         }
     }
     // Chain title editors are within TabContentComponent
@@ -332,7 +314,7 @@ void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
         }
     }
     else if (button == saveActiveTabButton.get()) {
-        if (audioProcessor.activeTabIndex < 0) return;
+        if (audioProcessor.getActiveTabIndex() < 0) return;
         chooser = std::make_unique<juce::FileChooser>(
             "Save Active Tab State",
             juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
@@ -344,12 +326,12 @@ void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
             if (file != juce::File{}) {
                 if (!file.hasFileExtension(".tabstate") && !file.hasFileExtension(".xml"))
                     file = file.withFileExtension(".tabstate");
-                audioProcessor.saveSingleTabStateToFile(audioProcessor.activeTabIndex, file);
+                audioProcessor.saveSingleTabStateToFile(audioProcessor.getActiveTabIndex(), file);
             }
         });
     }
     else if (button == loadActiveTabButton.get()) {
-        if (audioProcessor.activeTabIndex < 0) return;
+        if (audioProcessor.getActiveTabIndex() < 0) return;
         chooser = std::make_unique<juce::FileChooser>(
             "Load State into Active Tab",
             juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
@@ -359,11 +341,11 @@ void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
         chooser->launchAsync(flags, [this] (const juce::FileChooser& fc) {
             juce::File file = fc.getResult();
             if (file != juce::File{}) {
-                audioProcessor.loadSingleTabStateFromFile(audioProcessor.activeTabIndex, file);
-                if (auto* activeTabComp = dynamic_cast<TabContentComponent*>(tabbedComponent.getTabContentComponent(audioProcessor.activeTabIndex))) {
+                audioProcessor.loadSingleTabStateFromFile(audioProcessor.getActiveTabIndex(), file);
+                if (auto* activeTabComp = dynamic_cast<TabContentComponent*>(tabbedComponent.getTabContentComponent(audioProcessor.getActiveTabIndex()))) {
                     activeTabComp->updateUIForTab();
                 }
-                tabbedComponent.setTabName(audioProcessor.activeTabIndex, audioProcessor.getTabTitle(audioProcessor.activeTabIndex));
+                tabbedComponent.setTabName(audioProcessor.getActiveTabIndex(), audioProcessor.getTabTitle(audioProcessor.getActiveTabIndex()));
                 sessionTitleEditor->setText(audioProcessor.getSessionTitleForActiveTab(), juce::dontSendNotification);
             }
         });

@@ -41,13 +41,13 @@ TabContentComponent::TabContentComponent(DualChainSampleTriggerProcessor& proces
     // Chain Title Editors
     chain1TitleEditor = std::make_unique<juce::TextEditor>("chain1TitleEditor");
     if (currentTabState) chain1TitleEditor->setText(currentTabState->chain1Title);
-    chain1TitleEditor->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    chain1TitleEditor->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     chain1TitleEditor->addListener(this);
     addAndMakeVisible(chain1TitleEditor.get());
 
     chain2TitleEditor = std::make_unique<juce::TextEditor>("chain2TitleEditor");
     if (currentTabState) chain2TitleEditor->setText(currentTabState->chain2Title);
-    chain2TitleEditor->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    chain2TitleEditor->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     chain2TitleEditor->addListener(this);
     addAndMakeVisible(chain2TitleEditor.get());
 
@@ -61,7 +61,7 @@ TabContentComponent::TabContentComponent(DualChainSampleTriggerProcessor& proces
         valueTreeState, DualChainSampleTriggerProcessor::PARAM_BLEND, *blendSlider);
 
     blendLabel = std::make_unique<juce::Label>("blendLabel", "Blend");
-    blendLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    blendLabel->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     blendLabel->setJustificationType(juce::Justification::centred);
     addAndMakeVisible(blendLabel.get());
 
@@ -75,7 +75,7 @@ TabContentComponent::TabContentComponent(DualChainSampleTriggerProcessor& proces
         valueTreeState, DualChainSampleTriggerProcessor::PARAM_MAIN_VOLUME, *mainVolumeSlider);
 
     mainVolumeLabel = std::make_unique<juce::Label>("mainVolumeLabel", "Main Volume");
-    mainVolumeLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    mainVolumeLabel->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     mainVolumeLabel->setJustificationType(juce::Justification::centred);
     addAndMakeVisible(mainVolumeLabel.get());
 

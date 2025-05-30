@@ -139,6 +139,9 @@ public:
     void saveSingleTabStateToFile(int tabIndex, const juce::File& file);
     void loadSingleTabStateFromFile(int tabIndex, const juce::File& file);
     void loadTabAsNewFromFile(const juce::File& file);
+
+    // Getter for active tab index
+    int getActiveTabIndex() const { return activeTabIndex; }
     
     //==============================================================================
     // AudioProcessorValueTreeState::Listener overrides

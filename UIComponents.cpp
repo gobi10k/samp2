@@ -106,7 +106,7 @@ void TriggerButton::paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighli
     
     // Draw the text
     g.setColour(DualTriggerStyle::textColour);
-    g.setFont(DualTriggerStyle::fontSizeMedium);
+    g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     g.drawText(getName(), getLocalBounds(), juce::Justification::centred);
 }
 
@@ -174,7 +174,7 @@ void WaveformDisplay::paint(juce::Graphics& g)
     {
         // Draw a message if no sample is loaded
         g.setColour(DualTriggerStyle::disabledColour);
-        g.setFont(DualTriggerStyle::fontSizeMedium);
+        g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
         g.drawText("No Sample Loaded", getLocalBounds(), juce::Justification::centred);
         return;
     }
@@ -188,7 +188,7 @@ void WaveformDisplay::paint(juce::Graphics& g)
     catch (...) {
         // Handle any potential exception gracefully
         g.setColour(DualTriggerStyle::disabledColour);
-        g.setFont(DualTriggerStyle::fontSizeMedium);
+        g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
         g.drawText("Error accessing sample", getLocalBounds(), juce::Justification::centred);
         return;
     }
@@ -210,7 +210,7 @@ void WaveformDisplay::paint(juce::Graphics& g)
     
     // Draw a title for the current sample - handle exceptions safely
     g.setColour(playingAnimationAlpha > 0.0f ? juce::Colours::white : waveformColour);
-    g.setFont(DualTriggerStyle::fontSizeMedium);
+    g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     
     juce::String sampleName;
     try {
@@ -377,7 +377,7 @@ void SampleListComponent::paint(juce::Graphics& g)
     {
         // Draw a message if no samples are loaded
         g.setColour(DualTriggerStyle::disabledColour);
-        g.setFont(DualTriggerStyle::fontSizeMedium);
+        g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
         g.drawText("Drag & Drop Audio Files", getLocalBounds(), juce::Justification::centred);
         return;
     }
@@ -679,16 +679,17 @@ void SampleListComponent::drawItem(juce::Graphics& g, int index, int y, bool isH
     
     // Draw the item number
     g.setColour(isCurrentSample ? juce::Colours::white : DualTriggerStyle::textColour);
-    g.setFont(juce::Font(DualTriggerStyle::fontSizeSmall));
+    g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeSmall)));
     g.drawText(juce::String(index + 1), itemBounds.withWidth(20), juce::Justification::centred);
     
     // Draw the filename
     g.setColour(isCurrentSample ? juce::Colours::white : (isHighlighted ? themeColour : DualTriggerStyle::textColour));
     
     // Create font with appropriate size and bold if it's the current sample
-    juce::Font fileNameFont(isCurrentSample ? DualTriggerStyle::fontSizeMedium + 1.0f : DualTriggerStyle::fontSizeMedium);
+    float fontSize = isCurrentSample ? DualTriggerStyle::fontSizeMedium + 1.0f : DualTriggerStyle::fontSizeMedium;
+    juce::Font fileNameFont(juce::FontOptions(fontSize));
     if (isCurrentSample)
-        fileNameFont = fileNameFont.boldened();
+        fileNameFont.setStyle(juce::Font::bold); // Use setStyle for options
     
     g.setFont(fileNameFont);
     g.drawText(sample->getFileName(), itemBounds.withTrimmedLeft(25).withTrimmedRight(50), juce::Justification::centredLeft);
@@ -700,7 +701,7 @@ void SampleListComponent::drawItem(juce::Graphics& g, int index, int y, bool isH
     
     // Draw play icon using ASCII ">" instead of Unicode triangle
     g.setColour(DualTriggerStyle::textColour);
-    g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium).boldened());
+    g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium).withStyle(juce::Font::bold)));
     g.drawText(">", playButtonBounds, juce::Justification::centred);  // ASCII ">" instead of Unicode triangle
     
     // Draw the remove button
@@ -709,7 +710,7 @@ void SampleListComponent::drawItem(juce::Graphics& g, int index, int y, bool isH
     g.drawRoundedRectangle(removeButtonBounds.toFloat(), 2.0f, 1.0f);
     
     g.setColour(DualTriggerStyle::textColour);
-    g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     g.drawText("X", removeButtonBounds, juce::Justification::centred);
 }
 
@@ -941,12 +942,12 @@ void CustomLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, b
     g.drawRoundedRectangle(boxBounds.toFloat().reduced(0.5f), cornerRadius, 1.0f);
 
     // Arrow
-    juce::Path arrow;
-    arrow.startNewSubPath(buttonX + buttonW * 0.3f, buttonY + buttonH * 0.35f);
-    arrow.lineTo(buttonX + buttonW * 0.5f, buttonY + buttonH * 0.65f);
-    arrow.lineTo(buttonX + buttonW * 0.7f, buttonY + buttonH * 0.35f);
+    juce::Path arrowPath; // Renamed to avoid conflict with member if any
+    arrowPath.startNewSubPath(buttonX + buttonW * 0.3f, buttonY + buttonH * 0.35f);
+    arrowPath.lineTo(buttonX + buttonW * 0.5f, buttonY + buttonH * 0.65f);
+    arrowPath.lineTo(buttonX + buttonW * 0.7f, buttonY + buttonH * 0.35f);
     g.setColour(box.findColour(juce::ComboBox::arrowColourId));
-    g.strokePath(arrow, juce::PathStrokeType(1.5f));
+    g.strokePath(arrowPath, juce::PathStrokeType(1.5f));
 }
 
 void CustomLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area,
@@ -991,7 +992,7 @@ void CustomLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectang
     if (isTicked)
     {
         // Simple ASCII checkmark
-        g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium * 0.9f));
+        g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium * 0.9f)));
         g.drawText("*", r.removeFromLeft(DualTriggerStyle::controlHeight -4), juce::Justification::centred);
     }
     
@@ -1001,20 +1002,20 @@ void CustomLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectang
                          juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize, 1.0f);
     }
 
-    g.setFont(juce::Font(DualTriggerStyle::fontSizeMedium)); // Use new font size
+    g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium))); // Use new font size
     auto textBounds = r;
     if (hasSubMenu)
     {
         auto arrowZone = r.removeFromRight(DualTriggerStyle::controlHeight / 2);
         // Simple ASCII arrow for submenu
-        g.setFont(juce::Font(DualTriggerStyle::fontSizeSmall));
+        g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeSmall)));
         g.drawText(">", arrowZone, juce::Justification::centred);
     }
     g.drawText(text, textBounds, juce::Justification::centredLeft, true);
 
     if (shortcutKeyText.isNotEmpty())
     {
-        g.setFont(juce::Font(DualTriggerStyle::fontSizeSmall));
+        g.setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeSmall)));
         g.drawText(shortcutKeyText, r.removeFromRight(area.getWidth()/3), juce::Justification::centredRight, true);
     }
 }
@@ -1023,7 +1024,7 @@ void CustomLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Rectang
 juce::Font CustomLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight)
 {
     // Use the new font sizes from DualTriggerStyle
-    return juce::Font(juce::jmin((float)buttonHeight * 0.7f, DualTriggerStyle::fontSizeMedium));
+    return juce::Font(juce::FontOptions(juce::jmin((float)buttonHeight * 0.7f, DualTriggerStyle::fontSizeMedium)));
 }
 
 int CustomLookAndFeel::getSliderThumbRadius(juce::Slider& slider)
@@ -1052,14 +1053,14 @@ ChainControlComponent::ChainControlComponent()
     
     // Create the title label
     titleLabel = std::make_unique<juce::Label>("titleLabel", "Chain 1");
-    titleLabel->setFont(juce::Font(DualTriggerStyle::fontSizeHeader).boldened());
+    titleLabel->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeHeader).withStyle(juce::Font::bold)));
     titleLabel->setJustificationType(juce::Justification::centred);
     titleLabel->setColour(juce::Label::textColourId, themeColour);
     addAndMakeVisible(titleLabel.get());
     
     // Create the trigger note label
     triggerNoteLabel = std::make_unique<juce::Label>("triggerNoteLabel", "Trigger Note:");
-    triggerNoteLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    triggerNoteLabel->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     triggerNoteLabel->setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(triggerNoteLabel.get());
     
@@ -1071,7 +1072,7 @@ ChainControlComponent::ChainControlComponent()
     
     // Create the volume label
     volumeLabel = std::make_unique<juce::Label>("volumeLabel", "Volume:");
-    volumeLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    volumeLabel->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     volumeLabel->setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(volumeLabel.get());
     
@@ -1111,7 +1112,7 @@ ChainControlComponent::ChainControlComponent()
     
     // Create the velocity threshold label
     velocityThresholdLabel = std::make_unique<juce::Label>("velocityThresholdLabel", "Velocity Threshold:");
-    velocityThresholdLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    velocityThresholdLabel->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     velocityThresholdLabel->setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(velocityThresholdLabel.get());
     
@@ -1127,7 +1128,7 @@ ChainControlComponent::ChainControlComponent()
     
     // Create the pitch shift label
     pitchShiftLabel = std::make_unique<juce::Label>("pitchShiftLabel", "Pitch Shift:");
-    pitchShiftLabel->setFont(juce::Font(DualTriggerStyle::fontSizeMedium));
+    pitchShiftLabel->setFont(juce::Font(juce::FontOptions(DualTriggerStyle::fontSizeMedium)));
     pitchShiftLabel->setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(pitchShiftLabel.get());
     
