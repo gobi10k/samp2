@@ -468,6 +468,8 @@ void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
             if (chain1Control) chain1Control->updateDisplay();
             if (chain2Control) chain2Control->updateDisplay();
         }
+        // End of the lambda callback for loadStateButton
+        }); 
     }
     else if (button == resetStateButton.get())
     {
