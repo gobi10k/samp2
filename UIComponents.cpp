@@ -1025,11 +1025,6 @@ ChainControlComponent::ChainControlComponent()
     sampleList->setColour(themeColour);
     addAndMakeVisible(sampleList.get());
     
-    // Create the load button
-    loadButton = std::make_unique<juce::TextButton>("loadButton", "Load Sample");
-    loadButton->addListener(this);
-    addAndMakeVisible(loadButton.get());
-    
     // Create the clear button
     clearButton = std::make_unique<juce::TextButton>("clearButton", "Clear All");
     clearButton->addListener(this);
@@ -1294,8 +1289,7 @@ void ChainControlComponent::resized()
     y += 100 + margin;
     
     // Position the sample buttons
-    loadButton->setBounds(margin, y, buttonWidth, controlHeight);
-    clearButton->setBounds(margin + buttonWidth + 10, y, buttonWidth, controlHeight);
+    clearButton->setBounds(margin, y, buttonWidth, controlHeight); // Adjusted clearButton position
     y += controlHeight + margin;
     
     // Position the sample list
@@ -1341,12 +1335,7 @@ void ChainControlComponent::sliderValueChanged(juce::Slider* slider)
 
 void ChainControlComponent::buttonClicked(juce::Button* button)
 {
-    if (button == loadButton.get())
-    {
-        // Load samples
-        loadSamples();
-    }
-    else if (button == clearButton.get() && sampleManager != nullptr)
+    if (button == clearButton.get() && sampleManager != nullptr)
     {
         // First set waveform display to null (so it doesn't try to access samples being deleted)
         waveformDisplay->setSample(nullptr);
@@ -1525,4 +1514,14 @@ juce::String ChainControlComponent::getMidiNoteName(int noteNumber)
     
     // Format the note name
     return juce::String(noteNames[note]) + juce::String(octave);
+}
+
+void ChainControlComponent::setChainTitle(const juce::String& newTitle)
+{
+    titleLabel->setText(newTitle, juce::dontSendNotification);
+}
+
+juce::String ChainControlComponent::getTitleText() const
+{
+    return titleLabel->getText();
 }

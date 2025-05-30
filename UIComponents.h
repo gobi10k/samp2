@@ -451,6 +451,18 @@ public:
      * Update the display to reflect current state
      */
     void updateDisplay();
+    
+    /**
+     * Set the title of the chain control component.
+     * @param newTitle The new title to set.
+     */
+    void setChainTitle(const juce::String& newTitle);
+
+    /**
+     * Get the current title of the chain control component.
+     * @return The current title string.
+     */
+    juce::String getTitleText() const;
 
     //==============================================================================
     // juce::Component overrides
@@ -501,7 +513,6 @@ private:
     std::unique_ptr<juce::Label> volumeLabel;
     std::unique_ptr<juce::Slider> volumeSlider;
     std::unique_ptr<SampleListComponent> sampleList;
-    std::unique_ptr<juce::TextButton> loadButton;
     std::unique_ptr<juce::TextButton> clearButton;
     std::unique_ptr<juce::ToggleButton> velocitySensitiveButton;
     std::unique_ptr<juce::Slider> velocityThresholdSlider;

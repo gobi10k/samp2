@@ -15,6 +15,11 @@ const juce::String DualChainSampleTriggerProcessor::PARAM_CHAIN2_VELOCITY_THRESH
 const juce::String DualChainSampleTriggerProcessor::PARAM_CHAIN1_PITCH_SHIFT = "chain1_pitch_shift";
 const juce::String DualChainSampleTriggerProcessor::PARAM_CHAIN2_PITCH_SHIFT = "chain2_pitch_shift";
 
+// APVTS Title Parameter ID definitions are removed
+// const juce::StringRef DualChainSampleTriggerProcessor::PARAM_SESSION_TITLE = "sessionTitle";
+// const juce::StringRef DualChainSampleTriggerProcessor::PARAM_CHAIN1_TITLE = "chain1Title";
+// const juce::StringRef DualChainSampleTriggerProcessor::PARAM_CHAIN2_TITLE = "chain2Title";
+
 //==============================================================================
 DualChainSampleTriggerProcessor::DualChainSampleTriggerProcessor()
     : AudioProcessor(BusesProperties()
@@ -27,6 +32,11 @@ DualChainSampleTriggerProcessor::DualChainSampleTriggerProcessor()
     
     // Create parameters
     createParameters();
+
+    // Initialize String Members for titles
+    currentSessionTitle = "sample keyboard";
+    currentChain1Title = "Chain 1";
+    currentChain2Title = "Chain 2";
     
     // Initialize state
     initializeState();
@@ -47,6 +57,10 @@ DualChainSampleTriggerProcessor::DualChainSampleTriggerProcessor()
     parameters->addParameterListener(PARAM_CHAIN2_VELOCITY_THRESHOLD, this);
     parameters->addParameterListener(PARAM_CHAIN1_PITCH_SHIFT, this);
     parameters->addParameterListener(PARAM_CHAIN2_PITCH_SHIFT, this);
+    // Remove APVTS listeners for titles
+    // parameters->addParameterListener(PARAM_SESSION_TITLE.toString(), this);
+    // parameters->addParameterListener(PARAM_CHAIN1_TITLE.toString(), this);
+    // parameters->addParameterListener(PARAM_CHAIN2_TITLE.toString(), this);
 }
 
 DualChainSampleTriggerProcessor::~DualChainSampleTriggerProcessor()
@@ -64,6 +78,10 @@ DualChainSampleTriggerProcessor::~DualChainSampleTriggerProcessor()
     parameters->removeParameterListener(PARAM_CHAIN2_VELOCITY_THRESHOLD, this);
     parameters->removeParameterListener(PARAM_CHAIN1_PITCH_SHIFT, this);
     parameters->removeParameterListener(PARAM_CHAIN2_PITCH_SHIFT, this);
+    // Remove APVTS listeners for titles
+    // parameters->removeParameterListener(PARAM_SESSION_TITLE.toString(), this);
+    // parameters->removeParameterListener(PARAM_CHAIN1_TITLE.toString(), this);
+    // parameters->removeParameterListener(PARAM_CHAIN2_TITLE.toString(), this);
     
     // Remove this as a listener from the state
     state.removeListener(this);
@@ -169,6 +187,11 @@ void DualChainSampleTriggerProcessor::createParameters()
             return (value > 0.0f ? "+" : "") + juce::String(value, 1) + " st";
         }
     ));
+
+    // Remove AudioParameterString for titles from layout
+    // layout.add(std::make_unique<juce::AudioParameterString>(...));
+    // layout.add(std::make_unique<juce::AudioParameterString>(...));
+    // layout.add(std::make_unique<juce::AudioParameterString>(...));
     
     // Create the parameters object
     parameters = std::make_unique<juce::AudioProcessorValueTreeState>(*this, nullptr, "Parameters", std::move(layout));
@@ -234,7 +257,7 @@ void DualChainSampleTriggerProcessor::parameterChanged(const juce::String& param
     if (parameterID == PARAM_BLEND)
     {
         chainManager->setBlendValue(newValue);
-        state.setProperty("blend", newValue, nullptr);
+        state.setProperty("blend", newValue, nullptr); // Still update old state for backward compatibility if needed
     }
     else if (parameterID == PARAM_MAIN_VOLUME)
     {
@@ -316,6 +339,98 @@ void DualChainSampleTriggerProcessor::parameterChanged(const juce::String& param
             sampleManager->setPitchShift(newValue);
         }
         state.setProperty("chain2PitchShift", newValue, nullptr);
+    }
+    // Remove handling for APVTS title parameters
+    // else if (parameterID == PARAM_SESSION_TITLE) { ... }
+    // else if (parameterID == PARAM_CHAIN1_TITLE) { ... }
+    // else if (parameterID == PARAM_CHAIN2_TITLE) { ... }
+}
+
+//==============================================================================
+// Standard JUCE getStateInformation
+void DualChainSampleTriggerProcessor::getStateInformation(juce::MemoryBlock& destData)
+{
+    // Create an XML element to hold the state
+    std::unique_ptr<juce::XmlElement> xmlState = std::make_unique<juce::XmlElement>("DualChainSampleTriggerState");
+
+    // Populate it using our helper function
+    getCurrentStateAsXml(*xmlState); // Use the renamed helper
+
+    // Convert the XML to a string and copy it to the destination memory block
+    copyXmlToBinary(*xmlState, destData); // copyXmlToBinary is a JUCE utility
+}
+
+// Renamed XML helper
+void DualChainSampleTriggerProcessor::getCurrentStateAsXml(juce::XmlElement& xml)
+{
+    // Ensure the root element is named appropriately (this method receives the root)
+    // We assume xml is already the correct root element, e.g., "DualChainSampleTriggerState"
+    // So, we just add attributes and children to it.
+
+    // Save main plugin parameters (using raw values from APVTS for now)
+    if (auto* blendParam = parameters->getRawParameterValue(PARAM_BLEND))
+        xml.setAttribute("blend", blendParam->load());
+    if (auto* mainVolParam = parameters->getRawParameterValue(PARAM_MAIN_VOLUME))
+        xml.setAttribute("mainVolume", mainVolParam->load());
+
+    // Save titles using the string member variables
+    xml.setAttribute("sessionTitle", currentSessionTitle);
+    xml.setAttribute("chain1Title", currentChain1Title);
+    xml.setAttribute("chain2Title", currentChain2Title);
+
+    // Save chain-specific parameters
+    for (int i = 0; i < 2; ++i)
+    {
+        juce::XmlElement* chainXml = new juce::XmlElement("Chain" + juce::String(i + 1));
+        
+        // Trigger Note
+        if (auto* noteParam = parameters->getRawParameterValue(i == 0 ? PARAM_CHAIN1_NOTE : PARAM_CHAIN2_NOTE))
+            chainXml->setAttribute("triggerNote", (int)noteParam->load());
+        
+        // Chain Volume
+        if (chainManager) 
+            chainXml->setAttribute("volume", chainManager->getChainVolume(i));
+
+        // Pitch Shift, Velocity Sensitivity, Velocity Threshold from SampleManager
+        if (chainManager && chainManager->getSampleManager(i))
+        {
+            SampleManager* sm = chainManager->getSampleManager(i);
+            chainXml->setAttribute("pitchShift", sm->getPitchShift());
+            chainXml->setAttribute("velocitySensitive", sm->isVelocitySensitive());
+            chainXml->setAttribute("velocityThreshold", sm->getVelocityThreshold());
+
+            // Save sample paths
+            juce::XmlElement* samplesXml = new juce::XmlElement("Samples");
+            for (int j = 0; j < sm->getNumSamples(); ++j)
+            {
+                if (auto* sample = sm->getSample(j))
+                {
+                    juce::XmlElement* sampleXml = new juce::XmlElement("Sample");
+                    sampleXml->setAttribute("path", sample->getFilePath());
+                    samplesXml->addChildElement(sampleXml);
+                }
+            }
+            chainXml->addChildElement(samplesXml);
+        }
+        xml.addChildElement(chainXml);
+    }
+}
+
+void DualChainSampleTriggerProcessor::saveStateToXml(const juce::File& outputFile)
+{
+    std::unique_ptr<juce::XmlElement> rootXml = std::make_unique<juce::XmlElement>("DualChainSampleTriggerState");
+    getCurrentStateAsXml(*rootXml); // Populate the XML structure
+
+    if (rootXml->getNumAttributes() > 0 || rootXml->getNumChildElements() > 0) // Check if it's not empty
+    {
+        if (!rootXml->writeTo(outputFile))
+        {
+            DBG("Failed to write XML state to file: " + outputFile.getFullPathName());
+        }
+    }
+    else
+    {
+        DBG("XML state is empty, not writing to file.");
     }
 }
 
@@ -595,6 +710,254 @@ void DualChainSampleTriggerProcessor::setStateInformation(const void* data, int 
         // Update the state
         initializeState();
     }
+}
+
+void DualChainSampleTriggerProcessor::setStateInformation(const juce::XmlElement& xml)
+{
+    if (!xml.hasTagName("DualChainSampleTriggerState"))
+    {
+        DBG("XML root tag name mismatch on load.");
+        return; 
+    }
+
+    if (xml.hasAttribute("blend"))
+        parameters->getParameterAsValue(PARAM_BLEND) = xml.getDoubleAttribute("blend");
+    if (xml.hasAttribute("mainVolume"))
+        parameters->getParameterAsValue(PARAM_MAIN_VOLUME) = xml.getDoubleAttribute("mainVolume");
+
+    // Load titles into string member variables
+    currentSessionTitle = xml.getStringAttribute("sessionTitle", "sample keyboard");
+    currentChain1Title = xml.getStringAttribute("chain1Title", "Chain 1");
+    currentChain2Title = xml.getStringAttribute("chain2Title", "Chain 2");
+    
+    int chainIdx = 0;
+    forEachXmlChildElement(xml, chainXml)
+    {
+        if (chainXml->hasTagName("Chain1") || chainXml->hasTagName("Chain2"))
+        {
+            int currentProcessingChainIndex = chainXml->hasTagName("Chain1") ? 0 : 1;
+
+            juce::String noteParamName = currentProcessingChainIndex == 0 ? PARAM_CHAIN1_NOTE : PARAM_CHAIN2_NOTE;
+            if (parameters->getRawParameterValue(noteParamName) != nullptr)
+            {
+                 auto noteValue = chainXml->getIntAttribute("triggerNote", currentProcessingChainIndex == 0 ? 60 : 62);
+                 parameters->getParameterAsValue(noteParamName) = noteValue;
+            }
+
+            if (chainManager)
+            {
+                chainManager->setChainVolume(currentProcessingChainIndex, (float)chainXml->getDoubleAttribute("volume", 1.0));
+                
+                SampleManager* sm = chainManager->getSampleManager(currentProcessingChainIndex);
+                if (sm)
+                {
+                    sm->setPitchShift((float)chainXml->getDoubleAttribute("pitchShift", 0.0));
+                    sm->setVelocitySensitive(chainXml->getBoolAttribute("velocitySensitive", true));
+                    sm->setVelocityThreshold(chainXml->getIntAttribute("velocityThreshold", 1));
+
+                    sm->clearAllSamples(); 
+                    if (auto* samplesXmlElement = chainXml->getChildByName("Samples"))
+                    {
+                        forEachXmlChildElement(*samplesXmlElement, sampleXml)
+                        {
+                            if (sampleXml->hasTagName("Sample"))
+                            {
+                                juce::File sampleFile(sampleXml->getStringAttribute("path"));
+                                if (sampleFile.existsAsFile())
+                                {
+                                    sm->addSample(sampleFile);
+                                }
+                                else
+                                {
+                                    DBG("Sample file not found on load: " + sampleFile.getFullPathName());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            chainIdx++; // This was not used, but kept from plan. Could be removed.
+        }
+    }
+    // Parameter changes should trigger parameterChanged and update ChainManager/SampleManager instances.
+    // The editor will manually update its components after this.
+}
+
+void DualChainSampleTriggerProcessor::loadStateFromXml(const juce::File& inputFile)
+{
+    std::unique_ptr<juce::XmlElement> xmlState = juce::parseXML(inputFile);
+    if (xmlState == nullptr)
+    {
+        DBG("Failed to parse XML from file: " + inputFile.getFullPathName());
+        return;
+    }
+    setStateInformation(*xmlState);
+    
+    // It's good practice to ensure all parts of the processor are updated.
+    // Calling initializeState() or a similar method might be useful if parameterChanged callbacks
+    // don't cover all aspects updated by setStateInformation.
+    // For now, assuming parameterChanged and subsequent editor updates are sufficient.
+}
+
+// Standard JUCE setStateInformation
+void DualChainSampleTriggerProcessor::setStateInformation(const void* data, int sizeInBytes)
+{
+    // Create an XML element from the binary data
+    std::unique_ptr<juce::XmlElement> xmlState = getXmlFromBinary(data, sizeInBytes); // getXmlFromBinary is a JUCE utility
+
+    if (xmlState != nullptr)
+    {
+        // Restore the state using our helper function
+        restoreStateFromXml(*xmlState); // Use the renamed helper
+    }
+    else
+    {
+        DBG("Failed to parse XML from binary data in setStateInformation.");
+    }
+}
+
+// Renamed XML helper
+void DualChainSampleTriggerProcessor::restoreStateFromXml(const juce::XmlElement& xml)
+{
+    if (!xml.hasTagName("DualChainSampleTriggerState"))
+    {
+        DBG("XML root tag name mismatch on load.");
+        return; 
+    }
+
+    if (xml.hasAttribute("blend"))
+        parameters->getParameterAsValue(PARAM_BLEND) = xml.getDoubleAttribute("blend");
+    if (xml.hasAttribute("mainVolume"))
+        parameters->getParameterAsValue(PARAM_MAIN_VOLUME) = xml.getDoubleAttribute("mainVolume");
+
+    // Load titles into string member variables
+    currentSessionTitle = xml.getStringAttribute("sessionTitle", "sample keyboard");
+    currentChain1Title = xml.getStringAttribute("chain1Title", "Chain 1");
+    currentChain2Title = xml.getStringAttribute("chain2Title", "Chain 2");
+    
+    int chainIdx = 0;
+    forEachXmlChildElement(xml, chainXml)
+    {
+        if (chainXml->hasTagName("Chain1") || chainXml->hasTagName("Chain2"))
+        {
+            int currentProcessingChainIndex = chainXml->hasTagName("Chain1") ? 0 : 1;
+
+            juce::String noteParamName = currentProcessingChainIndex == 0 ? PARAM_CHAIN1_NOTE : PARAM_CHAIN2_NOTE;
+            if (parameters->getRawParameterValue(noteParamName) != nullptr)
+            {
+                 auto noteValue = chainXml->getIntAttribute("triggerNote", currentProcessingChainIndex == 0 ? 60 : 62);
+                 parameters->getParameterAsValue(noteParamName) = noteValue;
+            }
+
+            if (chainManager)
+            {
+                chainManager->setChainVolume(currentProcessingChainIndex, (float)chainXml->getDoubleAttribute("volume", 1.0));
+                
+                SampleManager* sm = chainManager->getSampleManager(currentProcessingChainIndex);
+                if (sm)
+                {
+                    sm->setPitchShift((float)chainXml->getDoubleAttribute("pitchShift", 0.0));
+                    sm->setVelocitySensitive(chainXml->getBoolAttribute("velocitySensitive", true));
+                    sm->setVelocityThreshold(chainXml->getIntAttribute("velocityThreshold", 1));
+
+                    sm->clearAllSamples(); 
+                    if (auto* samplesXmlElement = chainXml->getChildByName("Samples"))
+                    {
+                        forEachXmlChildElement(*samplesXmlElement, sampleXml)
+                        {
+                            if (sampleXml->hasTagName("Sample"))
+                            {
+                                juce::File sampleFile(sampleXml->getStringAttribute("path"));
+                                if (sampleFile.existsAsFile())
+                                {
+                                    sm->addSample(sampleFile);
+                                }
+                                else
+                                {
+                                    DBG("Sample file not found on load: " + sampleFile.getFullPathName());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            chainIdx++; // This was not used, but kept from plan. Could be removed.
+        }
+    }
+    // Parameter changes should trigger parameterChanged and update ChainManager/SampleManager instances.
+    // The editor will manually update its components after this.
+}
+
+void DualChainSampleTriggerProcessor::loadStateFromXml(const juce::File& inputFile)
+{
+    juce::XmlDocument xmlDoc(inputFile);
+    std::unique_ptr<juce::XmlElement> xmlState = xmlDoc.getDocumentElement();
+
+    if (xmlState == nullptr)
+    {
+        DBG("Failed to parse XML from file: " + inputFile.getFullPathName() + " - Error: " + xmlDoc.getLastParseError());
+        return;
+    }
+    if (!xmlDoc.getLastParseError().isEmpty())
+    {
+        DBG("XML parsing error for file: " + inputFile.getFullPathName() + " - Error: " + xmlDoc.getLastParseError());
+        // Optionally return or proceed with caution if xmlState is not null but errors occurred
+    }
+
+    // Only proceed if xmlState is valid (it might be non-null even with minor parse errors)
+    // For robustness, ensure it has the expected tag if we proceed.
+    // The restoreStateFromXml method already checks the tag name.
+    restoreStateFromXml(*xmlState); // Use renamed helper
+    
+    // It's good practice to ensure all parts of the processor are updated.
+    // Calling initializeState() or a similar method might be useful if parameterChanged callbacks
+    // don't cover all aspects updated by setStateInformation.
+    // For now, assuming parameterChanged and subsequent editor updates are sufficient.
+}
+
+void DualChainSampleTriggerProcessor::resetToDefaultState()
+{
+    // Reset APVTS parameters to their defaults
+    for (auto* param : getParameters())
+    {
+        if (auto* floatParam = dynamic_cast<juce::AudioParameterFloat*>(param))
+            floatParam->operator=(floatParam->getParameterInfo().defaultValue);
+        else if (auto* intParam = dynamic_cast<juce::AudioParameterInt*>(param))
+            intParam->operator=(intParam->getParameterInfo().defaultValue);
+        else if (auto* boolParam = dynamic_cast<juce::AudioParameterBool*>(param))
+            boolParam->operator=(boolParam->getParameterInfo().defaultValue);
+        else if (auto* choiceParam = dynamic_cast<juce::AudioParameterChoice*>(param))
+            choiceParam->operator=(static_cast<int>(choiceParam->getParameterInfo().defaultValue));
+    }
+    
+    // Reset titles (temporary processor variables)
+    currentSessionTitle = "sample keyboard"; 
+    currentChain1Title = "Chain 1";
+    currentChain2Title = "Chain 2";
+
+    // Reset chain-specific settings in ChainManager and SampleManager
+    if (chainManager)
+    {
+        for (int i = 0; i < 2; ++i)
+        {
+            // APVTS parameters (like trigger notes, chain volumes if they become APVTS)
+            // are reset above. If chain volume is not APVTS, reset directly:
+            // chainManager->setChainVolume(i, 1.0f); 
+            // For now, assuming chain volumes are part of APVTS or their reset is covered
+            // by APVTS parameter reset callbacks.
+
+            SampleManager* sm = chainManager->getSampleManager(i);
+            if (sm)
+            {
+                sm->setPitchShift(0.0f);        // Default pitch shift
+                sm->setVelocitySensitive(true); // Default velocity sensitivity
+                sm->setVelocityThreshold(1);    // Default velocity threshold
+                sm->clearAllSamples();          // Clear all samples
+            }
+        }
+    }
+    // Parameter changes should trigger parameterChanged and update ChainManager/SampleManager instances.
+    // The editor will manually update its components after this.
 }
 
 //==============================================================================

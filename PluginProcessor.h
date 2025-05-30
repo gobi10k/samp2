@@ -46,6 +46,25 @@ public:
     
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
+
+    //==============================================================================
+    // XML State Management
+    void getCurrentStateAsXml(juce::XmlElement& xml); // Helper for both XML save and host save
+    void restoreStateFromXml(const juce::XmlElement& xml); // Helper for both XML load and host load
+    void saveStateToXml(const juce::File& outputFile);
+    void loadStateFromXml(const juce::File& inputFile);
+
+    // Add public methods to set these from the editor before saving
+    void setSessionTitleForSaving(const juce::String& title) { currentSessionTitle = title; }
+    void setChain1TitleForSaving(const juce::String& title) { currentChain1Title = title; }
+    void setChain2TitleForSaving(const juce::String& title) { currentChain2Title = title; }
+
+    // Add public methods to get these for the editor after loading
+    juce::String getSessionTitleForSaving() const { return currentSessionTitle; }
+    juce::String getChain1TitleForSaving() const { return currentChain1Title; }
+    juce::String getChain2TitleForSaving() const { return currentChain2Title; }
+
+    void resetToDefaultState();
     
     //==============================================================================
     // AudioProcessorValueTreeState::Listener overrides
@@ -127,6 +146,7 @@ private:
     
     // Parameter IDs - making public for editor access
 public:
+    // Existing float/int/bool parameters // Keep these
     static const juce::String PARAM_BLEND;
     static const juce::String PARAM_MAIN_VOLUME;
     static const juce::String PARAM_CHAIN1_VOLUME;
@@ -139,6 +159,11 @@ public:
     static const juce::String PARAM_CHAIN2_VELOCITY_THRESHOLD;
     static const juce::String PARAM_CHAIN1_PITCH_SHIFT;
     static const juce::String PARAM_CHAIN2_PITCH_SHIFT;
+
+    // APVTS Title Parameter IDs are removed
+    // static const juce::StringRef PARAM_SESSION_TITLE;
+    // static const juce::StringRef PARAM_CHAIN1_TITLE;
+    // static const juce::StringRef PARAM_CHAIN2_TITLE;
     
 private:
     // Create all parameters
@@ -149,6 +174,11 @@ private:
     
     // State ValueTree for saving/loading plugin state
     juce::ValueTree state;
+
+    // Re-introduce String Members for titles
+    juce::String currentSessionTitle;
+    juce::String currentChain1Title;
+    juce::String currentChain2Title;
     
     // Initialize state from parameters
     void initializeState();
