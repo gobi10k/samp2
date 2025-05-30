@@ -110,6 +110,9 @@ private:
     
     // Custom look and feel
     std::unique_ptr<CustomLookAndFeel> lookAndFeel;
+
+    // FileChooser member
+    std::unique_ptr<juce::FileChooser> chooser;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DualChainSampleTriggerEditor)
 };

@@ -411,40 +411,47 @@ void DualChainSampleTriggerEditor::buttonClicked(juce::Button* button)
         audioProcessor.setChain1TitleForSaving(chain1TitleEditor->getText());
         audioProcessor.setChain2TitleForSaving(chain2TitleEditor->getText());
 
-        juce::FileChooser chooser("Save State as XML",
-                                  juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
-                                  "*.xml");
+        chooser = std::make_unique<juce::FileChooser>(
+            "Save State as XML",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
+            "*.xml",
+            true, // useOSNativeDialogBox
+            false, // treatFilePackagesAsDirectories
+            this); // parentComponent (this PluginEditor instance)
+        
+        auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting;
 
-        juce::Component* parentComponent = getTopLevelComponent(); 
-
-        if (chooser.showDialog(true, parentComponent)) // true for save mode
+        chooser->launchAsync(flags, [this] (const juce::FileChooser& fc)
         {
-            juce::File file = chooser.getSelectedFile(0); 
-            if (file != juce::File{}) 
+            juce::File file = fc.getResult();
+            if (file != juce::File{})
             {
+                // Ensure .xml extension
                 if (!file.hasFileExtension(".xml") && !file.hasFileExtension(".XML"))
-                {
                     file = file.withFileExtension(".xml");
-                }
                 audioProcessor.saveStateToXml(file);
             }
-        }
+        });
     }
     // Note: Other button clicks like clearButton, etc., are handled within ChainControlComponent's
     // own buttonClicked method if they are part of that component.
     // If there were other buttons directly in PluginEditor, their handlers would go here.
     else if (button == loadStateButton.get())
     {
-        juce::FileChooser chooser("Load State from XML",
-                                  juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
-                                  "*.xml");
-                
-        juce::Component* parentComponent = getTopLevelComponent();
+        chooser = std::make_unique<juce::FileChooser>(
+            "Load State from XML",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
+            "*.xml",
+            true, // useOSNativeDialogBox
+            false, // treatFilePackagesAsDirectories
+            this); // parentComponent
 
-        if (chooser.showDialog(false, parentComponent)) // false for open mode
+        auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+
+        chooser->launchAsync(flags, [this] (const juce::FileChooser& fc)
         {
-            juce::File file = chooser.getSelectedFile(0); 
-            if (file != juce::File{}) 
+            juce::File file = fc.getResult();
+            if (file != juce::File{})
             {
                 audioProcessor.loadStateFromXml(file);
 
@@ -496,4 +503,5 @@ void DualChainSampleTriggerEditor::parameterChanged(const juce::String& paramete
     // if all parameter-driven UI is covered by attachments or specific callbacks.
     // For this step, we'll leave it empty as no other parameters seem to need manual handling here.
 }
-// Removed empty parameterChanged method definition as it's no longer needed.
+// The parameterChanged method definition is fully removed as it's not declared in PluginEditor.h
+// and AudioProcessorValueTreeState::Listener is not inherited by the editor.

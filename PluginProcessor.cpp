@@ -917,18 +917,42 @@ void DualChainSampleTriggerProcessor::loadStateFromXml(const juce::File& inputFi
 
 void DualChainSampleTriggerProcessor::resetToDefaultState()
 {
-    // Reset APVTS parameters to their defaults
-    for (auto* param : getParameters())
-    {
-        if (auto* floatParam = dynamic_cast<juce::AudioParameterFloat*>(param))
-            floatParam->operator=(floatParam->getParameterInfo().defaultValue);
-        else if (auto* intParam = dynamic_cast<juce::AudioParameterInt*>(param))
-            intParam->operator=(intParam->getParameterInfo().defaultValue);
-        else if (auto* boolParam = dynamic_cast<juce::AudioParameterBool*>(param))
-            boolParam->operator=(boolParam->getParameterInfo().defaultValue);
-        else if (auto* choiceParam = dynamic_cast<juce::AudioParameterChoice*>(param))
-            choiceParam->operator=(static_cast<int>(choiceParam->getParameterInfo().defaultValue));
-    }
+    // Reset APVTS parameters to their known hardcoded defaults
+    if (auto* param = parameters.getParameterAsValue(PARAM_BLEND)) { *param = 0.5f; }
+    else { DBG("PARAM_BLEND not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_MAIN_VOLUME)) { *param = 1.0f; }
+    else { DBG("PARAM_MAIN_VOLUME not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_VOLUME)) { *param = 1.0f; }
+    else { DBG("PARAM_CHAIN1_VOLUME not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_VOLUME)) { *param = 1.0f; }
+    else { DBG("PARAM_CHAIN2_VOLUME not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_NOTE)) { *param = 60.0f; } // juce::var handles float to int
+    else { DBG("PARAM_CHAIN1_NOTE not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_NOTE)) { *param = 62.0f; } // juce::var handles float to int
+    else { DBG("PARAM_CHAIN2_NOTE not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE)) { *param = true; }
+    else { DBG("PARAM_CHAIN1_VELOCITY_SENSITIVE not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE)) { *param = true; }
+    else { DBG("PARAM_CHAIN2_VELOCITY_SENSITIVE not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD)) { *param = 1.0f; } // juce::var handles float to int
+    else { DBG("PARAM_CHAIN1_VELOCITY_THRESHOLD not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD)) { *param = 1.0f; } // juce::var handles float to int
+    else { DBG("PARAM_CHAIN2_VELOCITY_THRESHOLD not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT)) { *param = 0.0f; }
+    else { DBG("PARAM_CHAIN1_PITCH_SHIFT not found during reset!"); }
+
+    if (auto* param = parameters.getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT)) { *param = 0.0f; }
+    else { DBG("PARAM_CHAIN2_PITCH_SHIFT not found during reset!"); }
     
     // Reset titles (temporary processor variables)
     currentSessionTitle = "sample keyboard"; 
