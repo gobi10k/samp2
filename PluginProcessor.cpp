@@ -456,14 +456,18 @@ juce::RangedAudioParameter* DualChainSampleTriggerProcessor::getParameterById(co
     return parameters->getParameter(paramId);
 }
 
-bool DualChainSampleTriggerProcessor::loadSamplesIntoChain(int chainIndex, const juce::Array<juce::File>& files)
+bool DualChainSampleTriggerProcessor::loadSamplesIntoChain(int chainIndexInTab, const juce::Array<juce::File>& files)
 {
-    if (chainIndex < 0 || chainIndex > 1)
+    if (chainIndexInTab < 0 || chainIndexInTab > 1) // Parameter is index within the tab (0 or 1)
     {
         return false;
     }
     
-    SampleManager* sampleManager = chainManager->getSampleManager(chainIndex);
+    ChainManager* activeCM = getActiveChainManager();
+    if (!activeCM) {
+        return false;
+    }
+    SampleManager* sampleManager = activeCM->getSampleManager(chainIndexInTab);
     
     if (sampleManager == nullptr)
     {
@@ -483,14 +487,18 @@ bool DualChainSampleTriggerProcessor::loadSamplesIntoChain(int chainIndex, const
     return success;
 }
 
-void DualChainSampleTriggerProcessor::clearSamplesFromChain(int chainIndex)
+void DualChainSampleTriggerProcessor::clearSamplesFromChain(int chainIndexInTab)
 {
-    if (chainIndex < 0 || chainIndex > 1)
+    if (chainIndexInTab < 0 || chainIndexInTab > 1)
     {
         return;
     }
     
-    SampleManager* sampleManager = chainManager->getSampleManager(chainIndex);
+    ChainManager* activeCM = getActiveChainManager();
+    if (!activeCM) {
+        return;
+    }
+    SampleManager* sampleManager = activeCM->getSampleManager(chainIndexInTab);
     
     if (sampleManager != nullptr)
     {
@@ -498,14 +506,18 @@ void DualChainSampleTriggerProcessor::clearSamplesFromChain(int chainIndex)
     }
 }
 
-int DualChainSampleTriggerProcessor::getNumSamplesInChain(int chainIndex)
+int DualChainSampleTriggerProcessor::getNumSamplesInChain(int chainIndexInTab)
 {
-    if (chainIndex < 0 || chainIndex > 1)
+    if (chainIndexInTab < 0 || chainIndexInTab > 1)
     {
         return 0;
     }
     
-    SampleManager* sampleManager = chainManager->getSampleManager(chainIndex);
+    ChainManager* activeCM = getActiveChainManager();
+    if (!activeCM) {
+        return 0;
+    }
+    SampleManager* sampleManager = activeCM->getSampleManager(chainIndexInTab);
     
     if (sampleManager == nullptr)
     {
@@ -515,14 +527,18 @@ int DualChainSampleTriggerProcessor::getNumSamplesInChain(int chainIndex)
     return sampleManager->getNumSamples();
 }
 
-juce::String DualChainSampleTriggerProcessor::getSampleFilename(int chainIndex, int sampleIndex)
+juce::String DualChainSampleTriggerProcessor::getSampleFilename(int chainIndexInTab, int sampleIndex)
 {
-    if (chainIndex < 0 || chainIndex > 1)
+    if (chainIndexInTab < 0 || chainIndexInTab > 1)
     {
         return {};
     }
     
-    SampleManager* sampleManager = chainManager->getSampleManager(chainIndex);
+    ChainManager* activeCM = getActiveChainManager();
+    if (!activeCM) {
+        return {};
+    }
+    SampleManager* sampleManager = activeCM->getSampleManager(chainIndexInTab);
     
     if (sampleManager == nullptr)
     {
@@ -539,6 +555,103 @@ juce::String DualChainSampleTriggerProcessor::getSampleFilename(int chainIndex, 
     return sample->getFileName();
 }
 
+//==============================================================================
+// Individual Tab State IO
+//==============================================================================
+void DualChainSampleTriggerProcessor::saveSingleTabStateToFile(int tabIndex, const juce::File& file) {
+    if (tabIndex < 0 || tabIndex >= static_cast<int>(tabStates.size()) || !tabStates[static_cast<size_t>(tabIndex)]) {
+        DBG("Invalid tab index for saving: " << tabIndex);
+        return;
+    }
+    std::unique_ptr<juce::XmlElement> xml(new juce::XmlElement("SingleTabState")); // Root tag for single tab file
+    tabStates[static_cast<size_t>(tabIndex)]->saveStateToXmlElement(*xml); // Use existing TabState serialization
+    if (!xml->writeTo(file)) {
+        DBG("Failed to write single tab state to file: " + file.getFullPathName());
+    }
+}
+
+void DualChainSampleTriggerProcessor::loadSingleTabStateFromFile(int tabIndex, const juce::File& file) {
+    if (tabIndex < 0 || tabIndex >= static_cast<int>(tabStates.size()) || !tabStates[static_cast<size_t>(tabIndex)]) {
+        DBG("Invalid tab index for loading: " << tabIndex);
+        return;
+    }
+    juce::XmlDocument xmlDoc(file);
+    std::unique_ptr<juce::XmlElement> xmlState(xmlDoc.getDocumentElement());
+
+    if (xmlState == nullptr || !xmlState->hasTagName("SingleTabState")) {
+        DBG("Failed to load or parse single tab state from file: " + file.getFullPathName());
+        // Optionally show a warning to the user via the editor
+        return;
+    }
+
+    tabStates[static_cast<size_t>(tabIndex)]->loadStateFromXmlElement(*xmlState);
+
+    // Prepare the chain manager for the loaded tab if audio is active
+    if (currentSampleRate > 0.001 && currentBlockSize > 0 && tabStates[static_cast<size_t>(tabIndex)]->chainManager) {
+        tabStates[static_cast<size_t>(tabIndex)]->chainManager->prepareToPlay(currentSampleRate, currentBlockSize);
+    }
+
+    // If this is the active tab, APVTS parameters need to be updated to reflect its new state.
+    if (tabIndex == getActiveTabIndex()) { // Use getter
+        if (TabState* loadedTab = getTabState(tabIndex)) {
+            if (ChainManager* cm = loadedTab->chainManager.get()) {
+                parameters->getParameterAsValue(PARAM_BLEND).setValueNotifyingHost(cm->getBlendValue());
+                parameters->getParameterAsValue(PARAM_MAIN_VOLUME).setValueNotifyingHost(cm->getMainVolume());
+                parameters->getParameterAsValue(PARAM_CHAIN1_VOLUME).setValueNotifyingHost(cm->getChainVolume(0));
+                parameters->getParameterAsValue(PARAM_CHAIN2_VOLUME).setValueNotifyingHost(cm->getChainVolume(1));
+                parameters->getParameterAsValue(PARAM_CHAIN1_NOTE).setValueNotifyingHost(cm->getTriggerNote(0));
+                parameters->getParameterAsValue(PARAM_CHAIN2_NOTE).setValueNotifyingHost(cm->getTriggerNote(1));
+                if (SampleManager* sm0 = cm->getSampleManager(0)) {
+                    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE).setValueNotifyingHost(sm0->isVelocitySensitive());
+                    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD).setValueNotifyingHost(sm0->getVelocityThreshold());
+                    parameters->getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT).setValueNotifyingHost(sm0->getPitchShift());
+                }
+                if (SampleManager* sm1 = cm->getSampleManager(1)) {
+                    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE).setValueNotifyingHost(sm1->isVelocitySensitive());
+                    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD).setValueNotifyingHost(sm1->getVelocityThreshold());
+                    parameters->getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT).setValueNotifyingHost(sm1->getPitchShift());
+                }
+            }
+        }
+    }
+    // The editor will need to be notified to refresh the specific tab's display.
+}
+
+void DualChainSampleTriggerProcessor::loadTabAsNewFromFile(const juce::File& file) {
+    juce::XmlDocument xmlDoc(file);
+    std::unique_ptr<juce::XmlElement> xmlState = xmlDoc.getDocumentElement();
+
+    if (xmlState == nullptr || !xmlState->hasTagName("SingleTabState")) {
+        DBG("Failed to load or parse single tab state from file for new tab: " + file.getFullPathName());
+        return;
+    }
+
+    // Create a temporary TabState to determine the title for the new tab.
+    auto tempLoadedState = std::make_unique<TabState>("Loading..."); // Default title if not in XML
+    tempLoadedState->loadStateFromXmlElement(*xmlState); // This will parse tabTitle from XML
+
+    // Add a new tab. Its ChainManager is default constructed.
+    // The title from the loaded state is used. If empty, use a generic "Loaded Tab".
+    addNewTab(tempLoadedState->tabTitle.isNotEmpty() ? tempLoadedState->tabTitle : "Loaded Tab");
+
+    // Get the newly added tab (it's the last one)
+    int newTabIndex = static_cast<int>(tabStates.size()) - 1;
+    if (newTabIndex >= 0 && tabStates[static_cast<size_t>(newTabIndex)]) {
+        // Now, properly load the state into this new tab's already existing ChainManager and other TabState fields
+        tabStates[static_cast<size_t>(newTabIndex)]->loadStateFromXmlElement(*xmlState);
+
+        // Prepare its ChainManager if audio is active
+        if (currentSampleRate > 0.001 && currentBlockSize > 0 && tabStates[static_cast<size_t>(newTabIndex)]->chainManager) {
+            tabStates[static_cast<size_t>(newTabIndex)]->chainManager->prepareToPlay(currentSampleRate, currentBlockSize);
+        }
+        // The editor will handle making this new tab active if desired.
+        // If this new tab becomes active, its parameters will be pushed to APVTS by the editor's currentTabChanged logic.
+    }
+}
+
+
+//==============================================================================
+// Existing Sample Management methods now operate on the active tab's ChainManager
 //==============================================================================
 void DualChainSampleTriggerProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
@@ -725,7 +838,7 @@ void DualChainSampleTriggerProcessor::restoreStateFromXml(const juce::XmlElement
     activeTabIndex = xml.getIntAttribute("activeTabIndex", 0);
     
     if (auto* tabsXmlElement = xml.getChildByName("TABS")) {
-        for (auto* tabStateXmlElement : tabsXmlElement->findAllSubElementsWithTagName("TAB_STATE")) {
+        forEachXmlChildElementWithTagName(*tabsXmlElement, tabStateXmlElement, "TAB_STATE") {
             // Create a new TabState. Its constructor gives it a default ChainManager.
             auto newTabState = std::make_unique<TabState>("Loading..."); // Temp title, will be overwritten by loadStateFromXmlElement
             newTabState->loadStateFromXmlElement(*tabStateXmlElement);   // Populate TabState and its ChainManager
@@ -756,23 +869,23 @@ void DualChainSampleTriggerProcessor::restoreStateFromXml(const juce::XmlElement
     // This is crucial for UI elements that are bound to these global parameters.
     if (TabState* activeTab = getActiveTabState()) {
         if (ChainManager* activeCM = activeTab->chainManager.get()) {
-            // Use setValueNotifyingHost to ensure UI and host are updated if parameters changed.
-            parameters->getParameterAsValue(PARAM_BLEND).setValueNotifyingHost(activeCM->getBlendValue());
-            parameters->getParameterAsValue(PARAM_MAIN_VOLUME).setValueNotifyingHost(activeCM->getMainVolume());
-            parameters->getParameterAsValue(PARAM_CHAIN1_VOLUME).setValueNotifyingHost(activeCM->getChainVolume(0));
-            parameters->getParameterAsValue(PARAM_CHAIN2_VOLUME).setValueNotifyingHost(activeCM->getChainVolume(1));
-            parameters->getParameterAsValue(PARAM_CHAIN1_NOTE).setValueNotifyingHost(activeCM->getTriggerNote(0));
-            parameters->getParameterAsValue(PARAM_CHAIN2_NOTE).setValueNotifyingHost(activeCM->getTriggerNote(1));
+            // Use direct assignment for juce::Value objects returned by getParameterAsValue()
+            parameters->getParameterAsValue(PARAM_BLEND) = activeCM->getBlendValue();
+            parameters->getParameterAsValue(PARAM_MAIN_VOLUME) = activeCM->getMainVolume();
+            parameters->getParameterAsValue(PARAM_CHAIN1_VOLUME) = activeCM->getChainVolume(0);
+            parameters->getParameterAsValue(PARAM_CHAIN2_VOLUME) = activeCM->getChainVolume(1);
+            parameters->getParameterAsValue(PARAM_CHAIN1_NOTE) = activeCM->getTriggerNote(0);
+            parameters->getParameterAsValue(PARAM_CHAIN2_NOTE) = activeCM->getTriggerNote(1);
 
             if (SampleManager* sm0 = activeCM->getSampleManager(0)) {
-                parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE).setValueNotifyingHost(sm0->isVelocitySensitive());
-                parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD).setValueNotifyingHost(sm0->getVelocityThreshold());
-                parameters->getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT).setValueNotifyingHost(sm0->getPitchShift());
+                parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE) = sm0->isVelocitySensitive();
+                parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD) = sm0->getVelocityThreshold();
+                parameters->getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT) = sm0->getPitchShift();
             }
             if (SampleManager* sm1 = activeCM->getSampleManager(1)) {
-                parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE).setValueNotifyingHost(sm1->isVelocitySensitive());
-                parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD).setValueNotifyingHost(sm1->getVelocityThreshold());
-                parameters->getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT).setValueNotifyingHost(sm1->getPitchShift());
+                parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE) = sm1->isVelocitySensitive();
+                parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD) = sm1->getVelocityThreshold();
+                parameters->getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT) = sm1->getPitchShift();
             }
         }
     }
@@ -807,57 +920,27 @@ void DualChainSampleTriggerProcessor::loadStateFromXml(const juce::File& inputFi
 
 void DualChainSampleTriggerProcessor::resetToDefaultState()
 {
-    // Reset APVTS parameters to their known hardcoded defaults
-    // Using operator-> on std::unique_ptr to access AudioProcessorValueTreeState members
-    // And then assigning directly to the juce::var returned by getParameterAsValue()
+    tabStates.clear();
+    activeTabIndex = 0;
+    addNewTab("Default Tab"); // Creates a tab, its CM will be default. Titles are default.
 
-    parameters->getParameterAsValue(PARAM_BLEND) = 0.5f;
-    parameters->getParameterAsValue(PARAM_MAIN_VOLUME) = 1.0f;
-    parameters->getParameterAsValue(PARAM_CHAIN1_VOLUME) = 1.0f;
-    parameters->getParameterAsValue(PARAM_CHAIN2_VOLUME) = 1.0f;
-    parameters->getParameterAsValue(PARAM_CHAIN1_NOTE) = 60.0f; // juce::var handles float to int if underlying is int
-    parameters->getParameterAsValue(PARAM_CHAIN2_NOTE) = 62.0f; // juce::var handles float to int
-    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_SENSITIVE) = true;
-    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_SENSITIVE) = true;
-    parameters->getParameterAsValue(PARAM_CHAIN1_VELOCITY_THRESHOLD) = 1.0f; // juce::var handles float to int
-    parameters->getParameterAsValue(PARAM_CHAIN2_VELOCITY_THRESHOLD) = 1.0f; // juce::var handles float to int
-    parameters->getParameterAsValue(PARAM_CHAIN1_PITCH_SHIFT) = 0.0f;
-    parameters->getParameterAsValue(PARAM_CHAIN2_PITCH_SHIFT) = 0.0f;
-    
-    // Note: The DBG messages for "param not found" are removed as getParameterAsValue()
-    // would return a void juce::var if the parameter doesn't exist, and assigning to it
-    // would be a benign operation (or potentially an error depending on JUCE version,
-    // but parameters should exist if defined in createParameters).
-    // If a parameter ID is incorrect, it's better to catch that during development.
-
-    // Reset titles (temporary processor variables)
-    currentSessionTitle = "sample keyboard"; 
-    currentChain1Title = "Chain 1";
-    currentChain2Title = "Chain 2";
-
-    // Reset chain-specific settings in ChainManager and SampleManager
-    if (chainManager)
-    {
-        for (int i = 0; i < 2; ++i)
-        {
-            // APVTS parameters (like trigger notes, chain volumes if they become APVTS)
-            // are reset above. If chain volume is not APVTS, reset directly:
-            // chainManager->setChainVolume(i, 1.0f); 
-            // For now, assuming chain volumes are part of APVTS or their reset is covered
-            // by APVTS parameter reset callbacks.
-
-            SampleManager* sm = chainManager->getSampleManager(i);
-            if (sm)
-            {
-                sm->setPitchShift(0.0f);        // Default pitch shift
-                sm->setVelocitySensitive(true); // Default velocity sensitivity
-                sm->setVelocityThreshold(1);    // Default velocity threshold
-                sm->clearAllSamples();          // Clear all samples
+    // Reset all APVTS parameters to their actual default values defined in createParameters().
+    // The parameterChanged callback, which is triggered by setValueNotifyingHost,
+    // will then apply these default values to the *active* (newly created) tab's ChainManager.
+    if (parameters) {
+        const auto& params = parameters->getParameters();
+        for (auto* param : params) {
+            if (auto* floatParam = dynamic_cast<juce::AudioParameterFloat*>(param)) {
+                floatParam->setValueNotifyingHost(floatParam->getDefaultValue());
+            } else if (auto* intParam = dynamic_cast<juce::AudioParameterInt*>(param)) {
+                intParam->setValueNotifyingHost(intParam->getDefaultValue());
+            } else if (auto* boolParam = dynamic_cast<juce::AudioParameterBool*>(param)) {
+                boolParam->setValueNotifyingHost(boolParam->getDefaultValue());
             }
+            // Add handling for other parameter types if used (e.g., Choice)
         }
     }
-    // Parameter changes should trigger parameterChanged and update ChainManager/SampleManager instances.
-    // The editor will manually update its components after this.
+    // The newly added "Default Tab" will now have its ChainManager configured with these defaults.
 }
 
 //==============================================================================
