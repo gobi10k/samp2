@@ -14,13 +14,10 @@
  * This editor class creates the user interface for the plugin.
  */
 class DualChainSampleTriggerEditor : public juce::AudioProcessorEditor,
-                                     // public juce::Slider::Listener, // Moved to TabContentComponent or handled by APVTS
-                                     public juce::Timer, // Keep for global UI updates if any
-                                     // public PianoRollComponent::Listener, // Moved to TabContentComponent
-                                     public juce::TextEditor::Listener, // For sessionTitleEditor
-                                     public juce::Button::Listener, // For global buttons
-                                     public juce::TabbedComponent::Listener // For tab changes
-                                     // Removed: public juce::FileChooser::ModalComponentManager // This was incorrect
+                                     public juce::Timer,
+                                     public juce::TextEditor::Listener,
+                                     public juce::Button::Listener,
+                                     public juce::TabbedComponent::Listener
 {
 public:
     //==============================================================================
