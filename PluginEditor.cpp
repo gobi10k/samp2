@@ -26,7 +26,7 @@ DualChainSampleTriggerEditor::DualChainSampleTriggerEditor(DualChainSampleTrigge
     // Tabbed Component
     addAndMakeVisible(tabbedComponent);
     tabbedComponent.setTabBarDepth(30); // Example depth
-    tabbedComponent.setListener(this);
+    tabbedComponent.addListener(this);
 
     // Global Buttons
     saveStateButton = std::make_unique<juce::TextButton>("Save Session");
@@ -78,7 +78,7 @@ DualChainSampleTriggerEditor::DualChainSampleTriggerEditor(DualChainSampleTrigge
 DualChainSampleTriggerEditor::~DualChainSampleTriggerEditor()
 {
     stopTimer();
-    tabbedComponent.setListener(nullptr); // Correct way to remove listener
+    tabbedComponent.removeListener(this); // Reverted to removeListener
     setLookAndFeel(nullptr);
 
     // Global buttons remove their own listeners implicitly if unique_ptr owns them.
