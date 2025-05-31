@@ -937,7 +937,7 @@ void CustomLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, b
 
     // Outline
     g.setColour(box.findColour(juce::ComboBox::outlineColourId));
-    if (box.isMouseOver() || box.isKeyboardFocusOwner())
+    if (box.isMouseOver() || box.isKeyboardFocusContainer()) // Changed to isKeyboardFocusContainer
         g.setColour(accentColour.withAlpha(0.7f));
     g.drawRoundedRectangle(boxBounds.toFloat().reduced(0.5f), cornerRadius, 1.0f);
 
